@@ -19,8 +19,6 @@ set -euo pipefail
 SEASON="${1:-summer}"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# PWD задает дефолт HOST_FILES_DIR в docker-compose.yml
-cd "$DIR"
-
-docker compose run --rm publisher \
+# Через compose.sh: корневой .env (IMAGE_MIRROR) и .env стека
+"$DIR/../compose.sh" valhalla run --rm publisher \
     python -m publisher.cli publish --season "$SEASON"

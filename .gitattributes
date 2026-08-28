@@ -1,0 +1,5 @@
+# Скрипты и конфиги всегда с LF: под bash CRLF ломает выполнение.
+* text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.tar binary

@@ -1,0 +1,20 @@
+# Keycloak. Приложение и браузеры ходят сюда по HOST_AUTH.
+server {
+    listen 80;
+    server_name ${HOST_AUTH};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${HOST_AUTH};
+    include /etc/nginx/snippets/tls.conf;
+    include /etc/nginx/snippets/security_headers.conf;
+
+    set $upstream_keycloak keycloak;
+
+    location / {
+        proxy_pass http://$upstream_keycloak:8080;
+        include /etc/nginx/snippets/proxy_headers.conf;
+    }
+}

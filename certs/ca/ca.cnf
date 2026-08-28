@@ -1,3 +1,7 @@
+# Корневой CA: используется только certs/setup.sh при создании корня.
+# Смена CN или O здесь ничего не меняет у уже выпущенного корня.
+# Расширения серверного сертификата генерируются скриптом в leaf_ext.cnf
+# из имен HOST_* корневого .env.
 [ req ]
 distinguished_name = dn_ca
 x509_extensions    = v3_ca
@@ -12,9 +16,3 @@ subjectKeyIdentifier   = hash
 authorityKeyIdentifier = keyid:always,issuer
 basicConstraints       = critical,CA:true
 keyUsage               = critical,keyCertSign,cRLSign
-
-[ leaf_ext ]
-basicConstraints = critical,CA:false
-keyUsage         = critical,digitalSignature,keyEncipherment
-extendedKeyUsage = serverAuth
-subjectAltName   = DNS:appsrvs,DNS:appsrvs.auth,DNS:appsrvs.registry,IP:<ip>

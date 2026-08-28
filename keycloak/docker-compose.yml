@@ -1,20 +1,13 @@
-# Прод: только keycloak, без dockerized postgres (внешний сервер - см.
-# .env.example) и без nginx (отдельный проект, см. infra/nginx). Подключен
-# к внешней сети app-network (та же, что связывает api/streamlit), чтобы
-# nginx мог достучаться до keycloak:8080 (см. infra/nginx/docker-compose.yml).
+# Прод: только Keycloak, БД на внешнем Postgres (см. .env.example), наружу
+# через nginx (HOST_AUTH). В app-network виден как keycloak.
 #
-# Перед первым запуском:
-#   1. docker network create app-network   (если еще не создана)
-#   2. БД keycloak + пользователь уже должны существовать на внешнем
-#      Postgres-сервере, указанном в KC_DB_URL - compose их не создает.
-#
-# Запуск:
-#   docker compose -f infra/keycloak/docker-compose.yml up -d
+# БД keycloak и пользователь должны существовать на внешнем сервере до
+# запуска, compose их не создает. Запуск: ./setup.sh в этом каталоге.
 
 services:
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.6
+    image: ${IMAGE_MIRROR:-}quay.io/keycloak/keycloak:26.6
     container_name: keycloak
     command: start --spi-theme-cache-themes=false --spi-theme-cache-templates=false --import-realm
     environment:
@@ -28,7 +21,7 @@ services:
 
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
-      KC_HOSTNAME: ${KC_HOSTNAME:-appsrvs.auth}
+      KC_HOSTNAME: ${KC_HOSTNAME:-${HOST_AUTH:-appsrvs.auth}}
       KC_HOSTNAME_STRICT: "false"
 
       KC_THEME: mks

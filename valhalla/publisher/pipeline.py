@@ -23,7 +23,15 @@ from publisher.valhalla_config import patch_valhalla_config
 
 log = structlog.get_logger(__name__)
 
-_COPY_FILES = ("base_map.osm.pbf", "admins.sqlite", "timezones.sqlite", "valhalla.json")
+# default_speeds.json обязателен: без него образ качает его с GitHub,
+# который в проде недоступен, и сборка падает
+_COPY_FILES = (
+    "base_map.osm.pbf",
+    "admins.sqlite",
+    "timezones.sqlite",
+    "valhalla.json",
+    "default_speeds.json",
+)
 
 
 class PublishError(RuntimeError):

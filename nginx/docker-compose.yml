@@ -1,21 +1,28 @@
-# Отдельный от каждого проксируемого сервиса reverse-proxy - чтобы
-# добавить новый сервис под этим nginx, достаточно положить новый файл в
-# conf.d/ и подключить этот сервис к сети app-network, без правки этого
-# compose-файла.
+# Reverse-proxy для всех сервисов и приложения. Конфиги в templates/
+# рендерятся образом nginx при старте контейнера: подставляются только
+# переменные HOST_*, APP_* и SERVER_IP из корневого .env, переменные
+# самого nginx ($host, $upstream_*) не трогаются.
 #
-# Запуск (после docker network create app-network - см. infra/README.md):
-#   docker compose -f infra/nginx/docker-compose.yml up -d
+# Новый сервис: templates/<сервис>.conf.template, HOST_<СЕРВИС> в корневом
+# .env, сервис в сети app-network. После правки шаблонов или .env:
+#   ./compose.sh nginx up -d --force-recreate   (или ./nginx/setup.sh)
+# Сертификат nginx перечитывает по nginx -s reload, это делает certs/setup.sh.
 
 services:
 
   nginx:
-    image: nginx:1.27-alpine
+    image: ${IMAGE_MIRROR:-}nginx:1.27-alpine
     container_name: infra_nginx
     ports:
       - "80:80"
       - "443:443"
+    env_file:
+      - ../.env
+    environment:
+      NGINX_ENVSUBST_FILTER: ^(HOST_|APP_|SERVER_IP)
     volumes:
-      - ./conf.d:/etc/nginx/conf.d:ro
+      - ./templates:/etc/nginx/templates:ro
+      - ./snippets:/etc/nginx/snippets:ro
       - ../certs:/etc/nginx/certs:ro
     networks:
       - app-network

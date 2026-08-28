@@ -1,0 +1,24 @@
+# Web-интерфейс приложения (Streamlit). Upstream из APP_UI_UPSTREAM:
+# имя контейнера или алиас приложения в app-network.
+server {
+    listen 80;
+    server_name ${HOST_UI} ${SERVER_IP};
+    return 301 https://${HOST_UI}$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${HOST_UI} ${SERVER_IP};
+    include /etc/nginx/snippets/tls.conf;
+    include /etc/nginx/snippets/security_headers.conf;
+
+    set $upstream_ui ${APP_UI_UPSTREAM};
+
+    location / {
+        proxy_pass http://$upstream_ui:8501;
+        include /etc/nginx/snippets/proxy_headers.conf;
+        # Streamlit держит WebSocket с браузером: без апгрейда страница
+        # загружается, но не реагирует на ввод.
+        include /etc/nginx/snippets/websocket.conf;
+    }
+}

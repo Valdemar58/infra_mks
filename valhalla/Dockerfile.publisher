@@ -1,5 +1,6 @@
 FROM python:3.13-slim AS base
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# uv из PyPI, а не из ghcr.io: в проде GitHub недоступен
+RUN pip install --no-cache-dir uv==0.12.1
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV UV_PYTHON_DOWNLOADS=never

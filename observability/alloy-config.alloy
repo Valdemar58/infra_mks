@@ -1,29 +1,35 @@
-// Собирает stdout/stderr Docker-контейнеров этого хоста через Docker API
-// (discovery.docker) и отправляет в Loki. Не требует общей docker-сети с
-// приложением - discovery.docker и loki.source.docker обращаются к Docker
-// напрямую через смонтированный /var/run/docker.sock, а не по сети.
+// Собирает stdout/stderr контейнеров этого хоста через Docker API и
+// отправляет в Loki. Общая docker-сеть с приложением не нужна:
+// discovery.docker и loki.source.docker читают смонтированный
+// /var/run/docker.sock.
+//
+// Какие контейнеры брать, задает APP_CONTAINER_REGEX (корневой .env):
+// на хосте могут быть посторонние контейнеры. Имя контейнера у Docker
+// начинается с "/". Метка app постоянная, дашборды Grafana фильтруют по
+// ней и не зависят от имен контейнеров.
 
 discovery.docker "containers" {
 	host = "unix:///var/run/docker.sock"
 }
 
-// Ограничиваем сбор только контейнерами этого приложения (asu_toir_*,
-// asu_toir, asu_toir_dev, asu_toir_ci, ...) - на хосте могут быть и другие,
-// не относящиеся к проекту контейнеры, которые собирать не нужно.
-// container_name у Docker всегда начинается с "/".
 discovery.relabel "containers" {
 	targets = discovery.docker.containers.targets
 
 	rule {
 		source_labels = ["__meta_docker_container_name"]
-		regex         = "/(asu_toir.*)"
+		regex         = "/(" + sys.env("APP_CONTAINER_REGEX") + ")"
 		target_label  = "container"
 	}
 
 	rule {
 		source_labels = ["__meta_docker_container_name"]
-		regex         = "/asu_toir.*"
+		regex         = "/(" + sys.env("APP_CONTAINER_REGEX") + ")"
 		action        = "keep"
+	}
+
+	rule {
+		target_label = "app"
+		replacement  = "asu"
 	}
 }
 
@@ -35,6 +41,6 @@ loki.source.docker "containers" {
 
 loki.write "default" {
 	endpoint {
-		url = "http://loki:3100/loki/api/v1/push"
+		url = sys.env("LOKI_URL") + "/loki/api/v1/push"
 	}
 }

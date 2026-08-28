@@ -1,0 +1,28 @@
+# Только Alloy: для хостов, где основной стек observability не запущен
+# (сервер приложения, сервер Valhalla). Собирает контейнеры своего хоста
+# и пишет в Loki по app-network (LOKI_URL из корневого .env).
+# Запуск: ./setup.sh --agent в этом каталоге.
+
+services:
+
+  alloy:
+    image: ${IMAGE_MIRROR:-}grafana/alloy:v1.5.1
+    container_name: infra_obs_alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+    environment:
+      APP_CONTAINER_REGEX: ${APP_CONTAINER_REGEX:-asu_toir.*|infra_valhalla.*}
+      LOKI_URL: ${LOKI_URL:-http://loki:3100}
+    volumes:
+      - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    external: true

@@ -1,23 +1,16 @@
-# Приватный Docker-registry с аутентификацией и UI, за общим infra/nginx
-# (см. infra/nginx/conf.d/docker_registry.conf, appsrvs.registry).
+# Приватный docker registry с аутентификацией и веб-интерфейсом за nginx
+# (HOST_REGISTRY). Сам registry в app-network не подключен: наружу смотрит
+# только registry-ui, который проксирует /v2/ на registry по внутренней
+# сети registry-internal, поэтому браузер и docker ходят на один origin.
 #
-# registry сам по себе не подключен к app-network и никак не виден извне -
-# только registry-ui, который сам проксирует /v2/* на registry по
-# внутренней сети registry-internal (см. NGINX_PROXY_PASS_URL) - поэтому
-# браузер всегда обращается к UI и registry с одного origin, без CORS.
-#
-# Перед первым запуском:
-#   mkdir -p infra/docker_registry/auth
-#   docker run --rm --entrypoint htpasswd httpd:2 -Bbn <user> '<password>' \
-#     > infra/docker_registry/auth/htpasswd
-#
-# Запуск:
-#   docker compose -f infra/docker_registry/docker-compose.yml up -d
+# Зеркало образов для прода без интернета живет здесь же, в пространстве
+# имен mirror/ (см. offline/mirror.sh и IMAGE_MIRROR в корневом .env).
+# Запуск: ./setup.sh в этом каталоге.
 
 services:
 
   registry:
-    image: registry:3.1.1
+    image: ${IMAGE_MIRROR:-}registry:3.1.1
     container_name: registry
     restart: unless-stopped
     volumes:
@@ -27,8 +20,8 @@ services:
     networks:
       - registry-internal
     healthcheck:
-      # /v2/ требует авторизации (401 для анонимных) - используем
-      # отдельный debug-listener без авторизации, наружу он не смотрит.
+      # /v2/ требует авторизации, поэтому проверяется отдельный
+      # debug-listener без нее, наружу он не смотрит.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:5001/debug/health"]
       interval: 30s
       timeout: 5s
@@ -36,7 +29,7 @@ services:
       start_period: 10s
 
   registry-ui:
-    image: joxit/docker-registry-ui:2.6.0
+    image: ${IMAGE_MIRROR:-}joxit/docker-registry-ui:2.6.0
     container_name: registry_ui
     restart: unless-stopped
     depends_on:
@@ -44,7 +37,7 @@ services:
         condition: service_healthy
     environment:
       SINGLE_REGISTRY: "true"
-      REGISTRY_TITLE: "asu_toir registry"
+      REGISTRY_TITLE: ${REGISTRY_TITLE:-MKS registry}
       NGINX_PROXY_PASS_URL: http://registry:5000
       DELETE_IMAGES: "true"
       REGISTRY_SECURED: "true"

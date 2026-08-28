@@ -808,6 +808,7 @@
       "clientAuthenticatorType": "client-secret",
       "secret": "__SET_VIA_KCADM__",
       "redirectUris": [
+        "https://appsrvs/oauth2callback",
         "http://localhost:8515/oauth2callback"
       ],
       "webOrigins": [

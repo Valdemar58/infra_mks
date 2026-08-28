@@ -1,39 +1,23 @@
-# Self-hosted Valhalla - движок маршрутизации (матрицы расстояний и
-# геометрия маршрутов) для АСУ ТОиР. Приложение переключается на него
-# через ROUTE_ENGINE=valhalla в своем .env.
+# Self-hosted Valhalla: маршрутизация для приложения (матрицы расстояний и
+# геометрия маршрутов). Приложение ходит по алиасам valhalla-summer и
+# valhalla-winter в app-network, поэтому имена контейнеров можно менять,
+# не трогая его .env. Снаружи оба сезона отдает nginx: HOST_ROUTE/summer/
+# и HOST_ROUTE/winter/. Порты на хост открыты только на 127.0.0.1.
 #
-# Живет отдельно от приложения: свой сервер, свой репозиторий. Общение
-# только по HTTP через сеть app-network, общих томов с приложением нет.
+# Установка и обновления: ./setup.sh в этом каталоге, подробности в README.md.
+# Зимний сезон под profile winter: setup.sh первый раз наполняет его копией
+# летнего тайлсета, зимники добавляются публикацией с season=winter.
 #
-# Летний и зимний (зимники) тайлсеты - отдельные сервисы с отдельными
-# данными в custom_files/<сезон>/. Зимний под profile "winter" и по
-# умолчанию не запускается:
-#   docker compose --profile winter up -d
-#
-# Сетевые алиасы valhalla-summer и valhalla-winter - постоянные адреса
-# сервисов. Приложение обращается по ним, поэтому имя стека и
-# container_name можно менять, не трогая .env приложения. Порты на хост
-# открыты только на 127.0.0.1 для локальной диагностики.
-#
-# Данные - bind mount (не named volume): базовая карта готовится на хосте
-# скриптом prepare_pbf.sh, а publisher собирает тайлы в staging-каталоге
-# рядом с живым.
-# На Linux перед первым запуском:
-#   mkdir -p custom_files/summer && sudo chown -R 59999:59999 custom_files
-#
-# Первый запуск строит тайлы ~1 час, в это время контейнер unhealthy -
-# это норма. Ресурсы и процедура обновления карты - в README.md.
-#
-# Запуск:
-#   cp .env.example .env      # заполнить ASU_API_TOKEN и HOST_FILES_DIR
-#   ./prepare_pbf.sh summer
-#   docker compose up -d
+# Данные bind mount в custom_files/<сезон>: карта готовится prepare_pbf.sh,
+# publisher собирает тайлы в staging-каталоге рядом с живым. На Linux
+# каталог принадлежит UID 59999 (пользователь образа), setup.sh это делает.
+# Первая сборка тайлов идет около часа, контейнер в это время unhealthy.
 
 services:
 
   valhalla-summer:
-    image: ghcr.io/valhalla/valhalla-scripted:3.8.3
-    container_name: asu_toir_valhalla_summer
+    image: ${IMAGE_MIRROR:-}ghcr.io/valhalla/valhalla-scripted:3.8.3
+    container_name: infra_valhalla_summer
     restart: unless-stopped
     ports:
       - "127.0.0.1:${VALHALLA_SUMMER_PORT:-8002}:8002"
@@ -56,14 +40,11 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 2h   # первая сборка тайлов, unhealthy в это время - норма
+      start_period: 2h   # первая сборка тайлов
 
-  # Зимний тайлсет (зимники, зимние скорости грунтовых дорог). Перед первым
-  # стартом скопировать базовую карту, чтобы не качать ее повторно:
-  #   cp custom_files/summer/base_map.osm.pbf custom_files/winter/
   valhalla-winter:
-    image: ghcr.io/valhalla/valhalla-scripted:3.8.3
-    container_name: asu_toir_valhalla_winter
+    image: ${IMAGE_MIRROR:-}ghcr.io/valhalla/valhalla-scripted:3.8.3
+    container_name: infra_valhalla_winter
     profiles: ["winter"]
     restart: unless-stopped
     ports:
@@ -89,27 +70,28 @@ services:
       retries: 5
       start_period: 2h
 
-  # Публикация кастомных дорог: тянет дороги и заявки из API АСУ, готовит
-  # staging-каталог, собирает тайлы одноразовым контейнером, патчит конфиг,
-  # делает смоук и swap, перезапускает живой сервис.
+  # Публикация кастомных дорог: тянет дороги и заявки из API приложения,
+  # готовит staging-каталог, собирает тайлы одноразовым контейнером, патчит
+  # конфиг, делает смоук и swap, перезапускает живой сервис.
   #
-  # HOST_FILES_DIR обязателен: publisher создает builder-контейнер на
-  # docker-демоне хоста, и путь тома должен быть хостовым, а не путем
-  # внутри publisher. Ошибка ловится проверкой перед сборкой.
+  # HOST_FILES_DIR: publisher создает builder-контейнер на docker-демоне
+  # хоста, поэтому путь тома должен быть хостовым, а не путем внутри
+  # publisher. Расхождение ловится проверкой перед сборкой.
   publisher:
     build:
       context: .
       dockerfile: Dockerfile.publisher
-    image: valhalla-publisher:${PUBLISHER_TAG:-latest}
-    container_name: asu_toir_valhalla_publisher
+    image: ${IMAGE_MIRROR:-}valhalla-publisher:${PUBLISHER_TAG:-latest}
+    container_name: infra_valhalla_publisher
     restart: unless-stopped
     environment:
       ASU_API_URL: ${ASU_API_URL:-http://asu_toir_api:8000}
-      ASU_API_TOKEN: ${ASU_API_TOKEN}
+      ASU_API_TOKEN: ${ASU_API_TOKEN:-}
       FILES_DIR: /custom_files
       HOST_FILES_DIR: ${HOST_FILES_DIR:-${PWD}/custom_files}
       DOCKER_NETWORK: ${DOCKER_NETWORK:-app-network}
-      LIVE_CONTAINER_PREFIX: ${LIVE_CONTAINER_PREFIX:-asu_toir_valhalla}
+      LIVE_CONTAINER_PREFIX: ${LIVE_CONTAINER_PREFIX:-infra_valhalla}
+      VALHALLA_IMAGE: ${IMAGE_MIRROR:-}ghcr.io/valhalla/valhalla-scripted:3.8.3
       BUILD_THREADS: ${BUILD_THREADS:-8}
       SNAP_TOLERANCE_M: ${SNAP_TOLERANCE_M:-100}
       POLL_INTERVAL_S: ${POLL_INTERVAL_S:-30}

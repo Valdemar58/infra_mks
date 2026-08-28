@@ -1,24 +1,16 @@
-# Dev: keycloak + одноразовый dockerized postgres (без внешнего сервера и
-# без nginx - Keycloak отдается напрямую по HTTP). Реалм без LDAP (нет
-# доступа к ldap://<контроллер домена> с dev-машин) - вместо этого локальный
-# пользователь admin_dev, тот же username, что и dev-заглушка на стороне
-# самого приложения (src/core/auth/principal.py).
+# Dev: Keycloak и одноразовый dockerized postgres, без внешнего сервера.
+# Realm без LDAP (с dev-машин нет доступа к ldap://<контроллер домена>), вместо
+# него локальный пользователь admin_dev, тот же username, что у dev-заглушки
+# приложения.
 #
-# Не требует внешнего Postgres. Опционально подключается к app-network
-# (см. infra/nginx/conf.d/keycloak.conf) - если infra/nginx поднят и сеть
-# app-network создана (docker network create app-network), Keycloak также
-# доступен по https://appsrvs.auth; если нет - работает и без этого,
-# напрямую по HTTP на 8080.
-#
-# Запуск:
-#   docker compose -f infra/keycloak/docker-compose.dev.yml up -d
-# Keycloak: http://localhost:8080 (админка), логин admin_dev/admin_dev
-# для проверки реального OIDC-флоу приложения.
+# Keycloak доступен напрямую по http://localhost:8080 и, если поднят nginx,
+# по https://<HOST_AUTH>: алиас keycloak в app-network совпадает с прод.
+# Запуск: ./setup.sh --dev в этом каталоге. Админка admin/admin.
 
 services:
 
   postgres:
-    image: postgres:16
+    image: ${IMAGE_MIRROR:-}postgres:16
     container_name: keycloak-db-dev
     environment:
       POSTGRES_DB: keycloak
@@ -29,7 +21,7 @@ services:
     restart: unless-stopped
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.6
+    image: ${IMAGE_MIRROR:-}quay.io/keycloak/keycloak:26.6
     container_name: keycloak-dev
     command: start-dev --import-realm
     environment:
@@ -41,12 +33,10 @@ services:
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak_password
 
-      # Без этого Keycloak не доверяет X-Forwarded-Proto от nginx и может
-      # генерировать http:// ссылки/iframe на https-странице - браузер
-      # тихо блокирует такой iframe как mixed content (симптом - "Timeout
-      # when waiting for 3rd party check iframe message" в консоли/логине).
+      # Без доверия X-Forwarded-Proto от nginx Keycloak генерирует http://
+      # ссылки на https-странице, и браузер блокирует их как mixed content.
       KC_PROXY_HEADERS: xforwarded
-      KC_HOSTNAME: appsrvs.auth
+      KC_HOSTNAME: ${HOST_AUTH:-appsrvs.auth}
       KC_HOSTNAME_STRICT: "false"
 
       KC_THEME: mks
@@ -70,10 +60,5 @@ volumes:
 
 networks:
   default: {}
-  # Внешняя (docker network create app-network) - та же сеть, что связывает
-  # api/streamlit и другие infra-модули. nginx (см.
-  # infra/nginx/conf.d/keycloak.conf) ищет upstream "keycloak" - алиас выше
-  # делает keycloak-dev доступным под этим именем, не трогая container_name
-  # (используется для CLI-команд типа docker exec keycloak-dev).
   app-network:
     external: true

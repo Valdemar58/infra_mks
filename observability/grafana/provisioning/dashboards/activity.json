@@ -1,7 +1,7 @@
 {
   "uid": "asu-toir-activity",
   "title": "АСУ ТОиР - Активность",
-  "tags": ["asu_toir"],
+  "tags": ["asu"],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
@@ -19,7 +19,7 @@
           "refId": "A",
           "datasource": { "type": "loki", "uid": "loki" },
           "queryType": "range",
-          "expr": "sum by (status_code) (count_over_time({container=~\"asu_toir.*\"} | json | event=\"request_completed\" [$__interval]))",
+          "expr": "sum by (status_code) (count_over_time({app=\"asu\"} | json | event=\"request_completed\" [$__interval]))",
           "legendFormat": "{{status_code}}"
         }
       ],
@@ -43,7 +43,7 @@
           "refId": "A",
           "datasource": { "type": "loki", "uid": "loki" },
           "queryType": "range",
-          "expr": "sum(count_over_time({container=~\"asu_toir.*\"} | json | event=\"request_failed\" [$__interval]))",
+          "expr": "sum(count_over_time({app=\"asu\"} | json | event=\"request_failed\" [$__interval]))",
           "legendFormat": "ошибки"
         }
       ],
@@ -68,7 +68,7 @@
           "datasource": { "type": "loki", "uid": "loki" },
           "queryType": "instant",
           "instant": true,
-          "expr": "topk(10, sum by (username) (count_over_time({container=~\"asu_toir.*\"} | json | event=\"request_completed\" [$__range])))"
+          "expr": "topk(10, sum by (username) (count_over_time({app=\"asu\"} | json | event=\"request_completed\" [$__range])))"
         }
       ],
       "fieldConfig": { "defaults": {}, "overrides": [] },
@@ -86,7 +86,7 @@
           "datasource": { "type": "loki", "uid": "loki" },
           "queryType": "instant",
           "instant": true,
-          "expr": "topk(10, sum by (endpoint) (count_over_time({container=~\"asu_toir.*\"} | json | event=\"request_completed\" [$__range])))"
+          "expr": "topk(10, sum by (endpoint) (count_over_time({app=\"asu\"} | json | event=\"request_completed\" [$__range])))"
         }
       ],
       "fieldConfig": { "defaults": {}, "overrides": [] },
@@ -104,7 +104,7 @@
           "datasource": { "type": "loki", "uid": "loki" },
           "queryType": "instant",
           "instant": true,
-          "expr": "topk(10, sum by (username) (count_over_time({container=~\"asu_toir.*\"} | json | event=\"page_view\" [$__range])))"
+          "expr": "topk(10, sum by (username) (count_over_time({app=\"asu\"} | json | event=\"page_view\" [$__range])))"
         }
       ],
       "fieldConfig": { "defaults": {}, "overrides": [] },
@@ -122,7 +122,7 @@
           "datasource": { "type": "loki", "uid": "loki" },
           "queryType": "instant",
           "instant": true,
-          "expr": "topk(10, sum by (page) (count_over_time({container=~\"asu_toir.*\"} | json | event=\"page_view\" [$__range])))"
+          "expr": "topk(10, sum by (page) (count_over_time({app=\"asu\"} | json | event=\"page_view\" [$__range])))"
         }
       ],
       "fieldConfig": { "defaults": {}, "overrides": [] },

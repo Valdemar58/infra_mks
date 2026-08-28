@@ -1,0 +1,22 @@
+# API приложения (FastAPI) для внешних систем и M2M-токенов.
+server {
+    listen 80;
+    server_name ${HOST_API};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${HOST_API};
+    include /etc/nginx/snippets/tls.conf;
+    include /etc/nginx/snippets/security_headers.conf;
+
+    client_max_body_size 50m;
+    set $upstream_api ${APP_API_UPSTREAM};
+
+    location / {
+        proxy_pass http://$upstream_api:8000;
+        include /etc/nginx/snippets/proxy_headers.conf;
+        proxy_read_timeout 300;
+    }
+}

@@ -1,0 +1,37 @@
+# Valhalla, оба сезона на одном имени: /summer/... и /winter/... Префикс
+# срезается перед проксированием, API Valhalla по путям сезоны не
+# различает. Пока профиль winter не поднят, /winter/ отвечает 502.
+# Приложение ходит не сюда, а напрямую по алиасам в app-network.
+server {
+    listen 80;
+    server_name ${HOST_ROUTE};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${HOST_ROUTE};
+    include /etc/nginx/snippets/tls.conf;
+    include /etc/nginx/snippets/security_headers.conf;
+
+    set $upstream_summer valhalla-summer;
+    set $upstream_winter valhalla-winter;
+    # Большие матрицы считаются долго
+    proxy_read_timeout 300;
+
+    location /summer/ {
+        rewrite ^/summer(/.*)$ $1 break;
+        proxy_pass http://$upstream_summer:8002;
+        include /etc/nginx/snippets/proxy_headers.conf;
+    }
+
+    location /winter/ {
+        rewrite ^/winter(/.*)$ $1 break;
+        proxy_pass http://$upstream_winter:8002;
+        include /etc/nginx/snippets/proxy_headers.conf;
+    }
+
+    location = / {
+        return 302 /summer/status;
+    }
+}

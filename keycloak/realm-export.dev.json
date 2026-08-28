@@ -827,6 +827,7 @@
       "clientAuthenticatorType": "client-secret",
       "secret": "streamlit_dev_secret",
       "redirectUris": [
+        "https://appsrvs/oauth2callback",
         "http://localhost:8515/oauth2callback"
       ],
       "webOrigins": [

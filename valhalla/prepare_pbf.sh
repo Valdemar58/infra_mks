@@ -39,7 +39,8 @@ if [ "${#files[@]}" -eq 1 ]; then
 fi
 
 echo "Мержим ${#files[@]} файлов в base_map.osm.pbf"
-docker compose run --rm --no-deps --entrypoint osmium publisher \
+# Через compose.sh, чтобы образ publisher брался с учетом IMAGE_MIRROR
+"$DIR/../compose.sh" valhalla run --rm --no-deps --entrypoint osmium publisher \
     merge "${files[@]}" -o "/custom_files/$SEASON/base_map.osm.pbf" --overwrite
 
 for f in "${files[@]}"; do

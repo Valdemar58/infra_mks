@@ -1,0 +1,36 @@
+# Docker registry: UI в браузере и docker login/push/pull по одному имени.
+# Наружу смотрит registry-ui, он сам проксирует /v2/ на registry.
+server {
+    listen 80;
+    server_name ${HOST_REGISTRY};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${HOST_REGISTRY};
+    include /etc/nginx/snippets/tls.conf;
+    include /etc/nginx/snippets/security_headers.conf;
+
+    # Слои образов большие: без лимита на тело запроса и без буферизации,
+    # иначе крупные push падают или целиком ложатся на диск nginx.
+    client_max_body_size 0;
+    chunked_transfer_encoding on;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_read_timeout 900;
+    proxy_send_timeout 900;
+
+    set $upstream_registry_ui registry_ui;
+
+    location / {
+        proxy_pass http://$upstream_registry_ui:80;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Port 443;
+        include /etc/nginx/snippets/security_headers.conf;
+        add_header 'Docker-Distribution-Api-Version' 'registry/2.0' always;
+    }
+}

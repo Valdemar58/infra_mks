@@ -1,38 +1,38 @@
-# Стек логирования (Loki + Grafana Alloy + Grafana), полностью отдельный
-# от docker-compose.yml/docker-compose.dev.yml самого приложения:
-# собственная сеть, собственные volume'ы, собственный .env - жизненный
-# цикл инфры не должен зависеть от деплоя приложения (и наоборот).
+# Логи: Loki хранит, Alloy собирает stdout контейнеров через Docker socket,
+# Grafana показывает. Grafana снаружи только через nginx (HOST_GRAFANA),
+# Loki и Alloy наружу не смотрят.
 #
-# Временное расположение внутри репозитория asu_toir - позже эта папка
-# планируется объединить с остальными infra-конфигами (пока живут вне git,
-# без отдельного репозитория) и вынести в отдельный репозиторий целиком.
-#
-# Запуск (независимо от docker-compose.yml приложения):
-#   docker compose -f infra/observability/docker-compose.yml up -d
-#
-# Alloy собирает логи контейнеров asu_toir_* через Docker socket/API -
-# общая docker-сеть с приложением для этого не нужна (см. alloy-config.alloy).
+# Loki подключен и к app-network под именем loki: туда пишут Alloy-агенты
+# с других хостов (docker-compose.agent.yml). Alloy берет только контейнеры,
+# чьи имена подходят под APP_CONTAINER_REGEX из корневого .env.
+# Запуск: ./setup.sh в этом каталоге.
 
 services:
 
   loki:
-    image: grafana/loki:3.3.0
-    container_name: asu_toir_obs_loki
+    image: ${IMAGE_MIRROR:-}grafana/loki:3.3.0
+    container_name: infra_obs_loki
     command: -config.file=/etc/loki/loki-config.yml
     volumes:
       - ./loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki-data:/loki
     networks:
-      - observability
+      observability: {}
+      app-network:
+        aliases:
+          - loki
     restart: unless-stopped
 
   alloy:
-    image: grafana/alloy:v1.5.1
-    container_name: asu_toir_obs_alloy
+    image: ${IMAGE_MIRROR:-}grafana/alloy:v1.5.1
+    container_name: infra_obs_alloy
     command:
       - run
       - /etc/alloy/config.alloy
       - --storage.path=/var/lib/alloy/data
+    environment:
+      APP_CONTAINER_REGEX: ${APP_CONTAINER_REGEX:-asu_toir.*|infra_valhalla.*}
+      LOKI_URL: ${LOKI_URL:-http://loki:3100}
     volumes:
       - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -44,20 +44,25 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:11.3.0
-    container_name: asu_toir_obs_grafana
+    image: ${IMAGE_MIRROR:-}grafana/grafana:11.3.0
+    container_name: infra_obs_grafana
     ports:
-      - "3001:3000"
+      # Только для локальной диагностики, снаружи через nginx
+      - "127.0.0.1:3001:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
       GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: https://${HOST_GRAFANA:-appsrvs.grafana}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - loki
     networks:
-      - observability
+      observability: {}
+      app-network:
+        aliases:
+          - grafana
     restart: unless-stopped
 
 volumes:
@@ -67,3 +72,5 @@ volumes:
 networks:
   observability:
     driver: bridge
+  app-network:
+    external: true

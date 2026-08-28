@@ -87,6 +87,7 @@ def _make_live(tmp_path: Path, season: str = "summer") -> Path:
     live.mkdir()
     (live / "base_map.osm.pbf").write_bytes(b"base")
     (live / "admins.sqlite").write_bytes(b"admins")
+    (live / "default_speeds.json").write_bytes(b"speeds")
     (live / "valhalla.json").write_text(
         json.dumps(_MIN_VALHALLA_CONFIG), encoding="utf-8"
     )
@@ -104,6 +105,7 @@ def test_prepare_builds_staging(tmp_path):
     assert exported == 1
     assert (staging / "base_map.osm.pbf").read_bytes() == b"merged"
     assert (staging / "admins.sqlite").is_file()
+    assert (staging / "default_speeds.json").is_file()
     assert (staging / "changes.osc").is_file()
     assert len(runner.apply_calls) == 1
     config = json.loads((staging / "valhalla.json").read_text(encoding="utf-8"))

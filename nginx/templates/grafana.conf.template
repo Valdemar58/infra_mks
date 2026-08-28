@@ -1,0 +1,22 @@
+# Grafana (стек observability), алиас grafana в app-network.
+server {
+    listen 80;
+    server_name ${HOST_GRAFANA};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${HOST_GRAFANA};
+    include /etc/nginx/snippets/tls.conf;
+    include /etc/nginx/snippets/security_headers.conf;
+
+    set $upstream_grafana grafana;
+
+    location / {
+        proxy_pass http://$upstream_grafana:3000;
+        include /etc/nginx/snippets/proxy_headers.conf;
+        # Grafana Live обновляет панели по WebSocket
+        include /etc/nginx/snippets/websocket.conf;
+    }
+}

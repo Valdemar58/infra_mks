@@ -1,0 +1,16 @@
+# Неизвестные имена не обслуживаются: соединение закрывается без ответа.
+# Файл с этим именем заменяет default.conf из образа nginx.
+server {
+    listen 80 default_server;
+    server_name _;
+    return 444;
+}
+
+server {
+    listen 443 ssl default_server;
+    server_name _;
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/server.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    return 444;
+}

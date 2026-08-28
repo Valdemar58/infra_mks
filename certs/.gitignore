@@ -1,2 +1,7 @@
+# Ключи и сертификаты в git не попадают, в репозитории только ca.cnf
 *.key
 *.pem
+*.crt
+*.srl
+*.csr
+ca/leaf_ext.cnf

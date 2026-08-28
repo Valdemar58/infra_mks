@@ -41,7 +41,7 @@ class Settings(BaseSettings):
         description="Сеть для builder-контейнера, publisher ходит в него по имени.",
     )
     live_container_prefix: str = Field(
-        default="asu_toir_valhalla",
+        default="infra_valhalla",
         validation_alias="LIVE_CONTAINER_PREFIX",
         description="Префикс имен живых контейнеров, к нему добавляется сезон.",
     )

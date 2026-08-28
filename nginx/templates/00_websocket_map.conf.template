@@ -1,0 +1,6 @@
+# Заголовок Connection для WebSocket: upgrade только когда клиент его
+# запросил, иначе close. Используется в snippets/websocket.conf.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
