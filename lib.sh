@@ -20,10 +20,36 @@ require_cmd() {
   done
 }
 
-# Значение переменной из env-файла: последнее вхождение, без кавычек.
+# Путь относительно корня репозитория для сообщений.
+rel_path() {
+  local p
+  p="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+  printf '%s\n' "${p#"$INFRA_ROOT"/}"
+}
+
+# Значение переменной из env-файла: последнее вхождение, без кавычек и CR.
 env_value() {
   local file="$1" var="$2"
-  { grep -E "^${var}=" "$file" 2>/dev/null || true; } | tail -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
+  { grep -E "^${var}=" "$file" 2>/dev/null || true; } | tail -1 | tr -d '\r' | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
+}
+
+# Переменные env-файла, оставшиеся с плейсхолдерами из .env.example:
+# change-me или <...>. Пустые значения плейсхолдером не считаются.
+env_placeholders() {
+  local file="$1" line name value
+  [ -f "$file" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    case "$line" in
+      [A-Za-z_]*=*) ;;
+      *) continue ;;
+    esac
+    name="${line%%=*}"
+    value="${line#*=}"
+    case "$value" in
+      *change-me*|*"<"*">"*) printf '%s\n' "$name" ;;
+    esac
+  done < "$file"
 }
 
 # Пустое значение или плейсхолдер из .env.example.
@@ -38,11 +64,12 @@ is_placeholder() {
 # заполнить перечисленные переменные.
 ensure_env_file() {
   local dir="$1"; shift
-  local example="$dir/.env.example" env="$dir/.env" missing=() var
-  [ -f "$example" ] || die "Нет $example"
+  local example="$dir/.env.example" env="$dir/.env" missing=() var shown
+  [ -f "$example" ] || die "Нет $(rel_path "$example")"
+  shown="$(rel_path "$env")"
   if [ ! -f "$env" ]; then
     cp "$example" "$env"
-    log "Создан $env из .env.example"
+    log "Создан $shown из .env.example"
   fi
   for var in "$@"; do
     if is_placeholder "$(env_value "$env" "$var")"; then
@@ -50,19 +77,20 @@ ensure_env_file() {
     fi
   done
   if [ "${#missing[@]}" -gt 0 ]; then
-    die "Заполните в $env: ${missing[*]} и запустите снова"
+    die "Заполните в $shown: ${missing[*]} и запустите снова"
   fi
 }
 
 # Экспортирует корневой .env: его читают скрипты и compose.
+# CR из файлов, правленных в Windows, отбрасывается.
 load_root_env() {
   if [ ! -f "$ROOT_ENV" ]; then
     cp "$INFRA_ROOT/.env.example" "$ROOT_ENV"
-    log "Создан $ROOT_ENV из .env.example"
+    log "Создан $(rel_path "$ROOT_ENV") из .env.example"
   fi
   set -a
   # shellcheck disable=SC1090
-  . "$ROOT_ENV"
+  . <(tr -d '\r' < "$ROOT_ENV")
   set +a
   export NETWORK_DRIVER="${NETWORK_DRIVER:-bridge}"
   export APP_NETWORK="${APP_NETWORK:-app-network}"

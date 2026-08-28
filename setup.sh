@@ -10,6 +10,10 @@
 #   --wait           valhalla: дождаться первой сборки тайлов, до 2 часов
 #   --agent          observability: только Alloy-агент на хосте без основного стека
 #   --renew-certs    перевыпустить серверный сертификат
+#   --init-ca        создать новый корневой CA, если в certs/ca/ его нет (иначе стоп с подсказкой)
+#
+# Перед запуском: положить существующий корень (certs/ca/rootCA.pem и
+# rootCA.key) или свой серверный сертификат в certs/, см. README.
 set -euo pipefail
 cd "$(dirname "$0")"
 . ./lib.sh
@@ -24,8 +28,8 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --only) [ $# -ge 2 ] || die "--only требует имя стека"; ONLY+=("$2"); shift 2 ;;
     --skip) [ $# -ge 2 ] || die "--skip требует имя стека"; SKIP+=("$2"); shift 2 ;;
-    --dev|--wait|--agent|--renew-certs) FLAGS+=("$1"); shift ;;
-    -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --dev|--wait|--agent|--renew-certs|--init-ca) FLAGS+=("$1"); shift ;;
+    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "Неизвестный аргумент: $1" ;;
   esac
 done
@@ -47,12 +51,36 @@ selected() {
 # Флаги, которые понимает конкретный стек.
 flags_for() {
   case "$1" in
-    certs)         has_flag --renew-certs && echo "--renew" ;;
+    certs)         has_flag --renew-certs && echo "--renew"; has_flag --init-ca && echo "--init-ca" ;;
     keycloak)      has_flag --dev && echo "--dev" ;;
     observability) has_flag --agent && echo "--agent" ;;
     valhalla)      has_flag --wait && echo "--wait" ;;
   esac
   true
+}
+
+# Создает .env выбранных стеков из примеров и до любых действий с docker
+# перечисляет все, что нужно заполнить, одним сообщением.
+preflight_env() {
+  local svc created=() todo=() vars
+  for svc in "${SERVICES[@]}"; do
+    selected "$svc" || continue
+    [ -f "$svc/.env.example" ] || continue
+    if [ "$svc" = keycloak ] && has_flag --dev; then continue; fi
+    if [ ! -f "$svc/.env" ]; then
+      cp "$svc/.env.example" "$svc/.env"
+      created+=("$svc/.env")
+    fi
+    vars="$(env_placeholders "$svc/.env" | tr '\n' ' ')"
+    [ -n "$vars" ] && todo+=("$svc/.env: $vars")
+  done
+  [ "${#created[@]}" -gt 0 ] && log "Созданы из .env.example: ${created[*]}"
+  if [ "${#todo[@]}" -gt 0 ]; then
+    warn "Незаполненные значения (плейсхолдеры из примеров):"
+    printf '    %s\n' "${todo[@]}" >&2
+    die "Заполните их и запустите ./setup.sh снова"
+  fi
+  return 0
 }
 
 # Путь проверки живости по имени переменной HOST_*.
@@ -91,6 +119,7 @@ require_cmd docker curl openssl
 load_root_env
 [ -n "${SERVER_IP:-}" ] || die "Заполните SERVER_IP в $ROOT_ENV: IP сервера с nginx"
 log "Настройки: $ROOT_ENV (NETWORK_DRIVER=$NETWORK_DRIVER, SERVER_IP=$SERVER_IP, IMAGE_MIRROR='${IMAGE_MIRROR}', OFFLINE=$OFFLINE)"
+preflight_env
 ensure_network
 
 for svc in "${SERVICES[@]}"; do
