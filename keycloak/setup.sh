@@ -18,7 +18,11 @@ post_import_hint() {
   docker exec -it keycloak kcadm.sh config credentials --server http://localhost:8080 --realm master \\
       --user \$KC_BOOTSTRAP_ADMIN_USERNAME --password \$KC_BOOTSTRAP_ADMIN_PASSWORD
   docker exec -it keycloak kcadm.sh get components -r master -q type=org.keycloak.storage.UserStorageProvider
-  docker exec -it keycloak kcadm.sh update components/<id> -r master -s 'config.bindCredential=["<пароль LDAP>"]'
+  docker exec -it keycloak kcadm.sh update components/<id> -r master \\
+      -s 'config.connectionUrl=["ldap://<контроллер домена>"]' \\
+      -s 'config.usersDn=["<base DN, например dc=example,dc=local>"]' \\
+      -s 'config.bindDn=["<домен>\\<учетная запись для чтения AD>"]' \\
+      -s 'config.bindCredential=["<пароль этой учетной записи>"]'
   docker exec -it keycloak kcadm.sh get clients -r master -q clientId=streamlit --fields id
   docker exec -it keycloak kcadm.sh update clients/<id> -r master -s secret=<CLIENT_STREAMLIT_SECRET приложения>
   docker exec -it keycloak kcadm.sh update clients/<id> -r master \\

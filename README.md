@@ -176,7 +176,7 @@ OFFLINE=1 в .env                # setup.sh ничего не скачивает
 
 Прод: только Keycloak, БД на внешнем Postgres (`keycloak/.env`), realm импортируется из `realm-export.json` один раз на пустую БД. Dev (`--dev`): Keycloak и одноразовый postgres, realm без LDAP, пользователь `admin_dev/admin_dev`, админка `admin/admin`, `http://localhost:8080`.
 
-Секреты в `realm-export.json` не хранятся, после первого импорта задаются через `kcadm.sh` (команды печатает `keycloak/setup.sh`): пароль LDAP, секрет клиента `streamlit` (равен `CLIENT_STREAMLIT_SECRET` приложения), redirect URI клиента `streamlit` для уже существующего realm (`https://<HOST_UI>/oauth2callback` есть в экспорте только для новых установок).
+Секреты и параметры домена в `realm-export.json` не хранятся (в файле плейсхолдер `__SET_VIA_KCADM__`), после первого импорта задаются через `kcadm.sh` (команды печатает `keycloak/setup.sh`): адрес контроллера домена, base DN, учетная запись и пароль LDAP, секрет клиента `streamlit` (равен `CLIENT_STREAMLIT_SECRET` приложения), redirect URI клиента `streamlit` для уже существующего realm (`https://<HOST_UI>/oauth2callback` есть в экспорте только для новых установок).
 
 Бэкап: дамп внешней БД и офлайн-экспорт realm.
 

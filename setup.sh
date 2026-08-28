@@ -89,7 +89,8 @@ summary() {
 
 require_cmd docker curl openssl
 load_root_env
-log "Настройки: $ROOT_ENV (NETWORK_DRIVER=$NETWORK_DRIVER, IMAGE_MIRROR='${IMAGE_MIRROR}', OFFLINE=$OFFLINE)"
+[ -n "${SERVER_IP:-}" ] || die "Заполните SERVER_IP в $ROOT_ENV: IP сервера с nginx"
+log "Настройки: $ROOT_ENV (NETWORK_DRIVER=$NETWORK_DRIVER, SERVER_IP=$SERVER_IP, IMAGE_MIRROR='${IMAGE_MIRROR}', OFFLINE=$OFFLINE)"
 ensure_network
 
 for svc in "${SERVICES[@]}"; do
