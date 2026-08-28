@@ -27,7 +27,12 @@ for url in $TILE_URLS; do
     name="$(basename "$url")"
     if [ ! -f "$DEST/$name" ]; then
         echo "Скачиваем $name"
-        curl -fL --retry 3 -o "$DEST/$name" "$url"
+        # Geofabrik временами отдает 502 и рвет соединение: долгие повторы
+        # и докачка с места обрыва. Готовый файл появляется только целиком,
+        # обрывок остается как .part и докачивается при следующем запуске.
+        curl -fL -C - --retry 30 --retry-delay 30 --retry-max-time 7200 \
+            -o "$DEST/$name.part" "$url"
+        mv "$DEST/$name.part" "$DEST/$name"
     fi
     files+=("/custom_files/$SEASON/$name")
 done
