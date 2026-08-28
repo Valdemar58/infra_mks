@@ -41,7 +41,7 @@ _HIGHWAY_BY_ROAD_TYPE = {
 
 _EMPTY_OSC = (
     '<?xml version="1.0" encoding="utf-8"?>\n'
-    '<osmChange version="0.6" generator="asu_toir_custom_roads" />'
+    '<osmChange version="0.6" generator="custom_roads_publisher" />'
 )
 
 
@@ -162,7 +162,7 @@ def _road_tags(road: CustomRoad) -> dict[str, str]:
 def build_osc(roads: list[CustomRoad], snap_map: dict[tuple[float, float], int]) -> str:
     """Формирует XML OsmChange. Совпадающие координаты разных дорог
     получают общий node id, чтобы касающиеся дороги были связаны графом."""
-    root = ET.Element("osmChange", version="0.6", generator="asu_toir_custom_roads")
+    root = ET.Element("osmChange", version="0.6", generator="custom_roads_publisher")
     create = ET.SubElement(root, "create")
 
     node_by_coord: dict[tuple[float, float], int] = {}

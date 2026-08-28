@@ -31,7 +31,7 @@ services:
       - /etc/alloy/config.alloy
       - --storage.path=/var/lib/alloy/data
     environment:
-      APP_CONTAINER_REGEX: ${APP_CONTAINER_REGEX:-asu_toir.*|infra_valhalla.*}
+      APP_CONTAINER_REGEX: ${APP_CONTAINER_REGEX:-${APP_NAME:?set APP_NAME in .env}.*|infra_valhalla.*}
       LOKI_URL: ${LOKI_URL:-http://loki:3100}
     volumes:
       - ./alloy-config.alloy:/etc/alloy/config.alloy:ro

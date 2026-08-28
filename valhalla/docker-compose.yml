@@ -85,7 +85,7 @@ services:
     container_name: infra_valhalla_publisher
     restart: unless-stopped
     environment:
-      ASU_API_URL: ${ASU_API_URL:-http://asu_toir_api:8000}
+      ASU_API_URL: ${ASU_API_URL:?set ASU_API_URL in valhalla/.env}
       ASU_API_TOKEN: ${ASU_API_TOKEN:-}
       FILES_DIR: /custom_files
       HOST_FILES_DIR: ${HOST_FILES_DIR:-${PWD}/custom_files}

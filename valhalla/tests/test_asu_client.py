@@ -41,9 +41,9 @@ _REQUEST_JSON = {
 
 
 def _client(handler) -> AsuClient:
-    client = AsuClient("http://asu_toir_api:8000", "secret-token")
+    client = AsuClient("http://api:8000", "secret-token")
     client._client = httpx.Client(
-        base_url="http://asu_toir_api:8000",
+        base_url="http://api:8000",
         transport=httpx.MockTransport(handler),
         headers={"Authorization": "ApiKey secret-token"},
     )

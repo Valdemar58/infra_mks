@@ -73,7 +73,7 @@ valhalla/           маршрутизация, свой README.md
 
 **Один сервер** (`NETWORK_DRIVER=bridge`): обычная bridge-сеть, ничего настраивать не нужно.
 
-**Несколько серверов** (`NETWORK_DRIVER=overlay`), например приложение на сервере 1, инфраструктура на сервере 2, Valhalla на сервере 3. Серверы объединяются в docker swarm, сеть становится overlay и attachable, все стеки по-прежнему поднимаются обычным `docker compose` (не `docker stack`: Valhalla нужны `container_name`, профили и bind mount). Имена и алиасы контейнеров резолвятся между хостами, поэтому nginx на сервере 2 находит `asu_toir` на сервере 1 и `valhalla-summer` на сервере 3 без дополнительной настройки.
+**Несколько серверов** (`NETWORK_DRIVER=overlay`), например приложение на сервере 1, инфраструктура на сервере 2, Valhalla на сервере 3. Серверы объединяются в docker swarm, сеть становится overlay и attachable, все стеки по-прежнему поднимаются обычным `docker compose` (не `docker stack`: Valhalla нужны `container_name`, профили и bind mount). Имена и алиасы контейнеров резолвятся между хостами, поэтому nginx на сервере 2 находит контейнер приложения (`APP_UI_UPSTREAM`) на сервере 1 и `valhalla-summer` на сервере 3 без дополнительной настройки.
 
 1. Сервер инфраструктуры становится manager: `docker swarm init --advertise-addr <ip сервера 2>`.
 2. Остальные серверы: `docker swarm join --token <токен> <ip сервера 2>:2377` (токен: `docker swarm join-token worker` на manager).
@@ -236,7 +236,7 @@ Loki хранит логи 90 дней (`loki-config.yml`), Alloy собирае
 
 На хостах без основного стека (приложение или Valhalla на другом сервере) поднимается только агент: `./setup.sh --only observability --agent`. Он пишет в Loki по `LOKI_URL` через `app-network`, Loki для этого имеет алиас `loki`.
 
-Дашборд «АСУ ТОиР - Активность» (`grafana/provisioning/dashboards/activity.json`): запросы к API во времени и по статусам, ошибки, топ пользователей и эндпоинтов, просмотры страниц. Правки из UI в файл не попадают сами. Чтобы зафиксировать: открыть дашборд, настройки, JSON Model, сохранить поверх `activity.json`, убрать поля `id` и `version`, оставить `uid` как есть, закоммитить. Через `updateIntervalSeconds: 30` файл снова станет источником правды.
+Дашборд «Активность приложения» (`grafana/provisioning/dashboards/activity.json`): запросы к API во времени и по статусам, ошибки, топ пользователей и эндпоинтов, просмотры страниц. Правки из UI в файл не попадают сами. Чтобы зафиксировать: открыть дашборд, настройки, JSON Model, сохранить поверх `activity.json`, убрать поля `id` и `version`, оставить `uid` как есть, закоммитить. Через `updateIntervalSeconds: 30` файл снова станет источником правды.
 
 ### valhalla
 
@@ -267,10 +267,10 @@ Loki хранит логи 90 дней (`loki-config.yml`), Alloy собирае
 
 ## Переименование приложения
 
-Имя приложения в инфраструктуре живет только в `.env`:
+Имя приложения в инфраструктуре живет только в `.env`, в одной переменной:
 
-1. Корневой `.env`: `APP_UI_UPSTREAM`, `APP_API_UPSTREAM` (имена контейнеров или алиасы нового приложения), `APP_CONTAINER_REGEX` (маска его контейнеров для логов).
-2. `valhalla/.env`: `ASU_API_URL`.
+1. Корневой `.env`: `APP_NAME`, техническое имя приложения, как `name` в его `pyproject.toml`. `APP_UI_UPSTREAM`, `APP_API_UPSTREAM` и `APP_CONTAINER_REGEX` ссылаются на него и меняются сами, пока приложение держит контейнеры или алиасы `<APP_NAME>` и `<APP_NAME>_api`.
+2. `valhalla/.env`: `ASU_API_URL` тоже ссылается на `APP_NAME`.
 3. `./setup.sh --only nginx --only observability --only valhalla`.
 
 Логи, собранные до переименования, остаются под старыми именами контейнеров, метка `app` у них та же.

@@ -11,9 +11,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     asu_api_url: str = Field(
-        default="http://asu_toir_api:8000",
         validation_alias="ASU_API_URL",
-        description="Адрес API АСУ.",
+        description="Адрес API приложения из app-network.",
     )
     asu_api_token: str = Field(
         default="",

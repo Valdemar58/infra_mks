@@ -8,8 +8,8 @@ x509_extensions    = v3_ca
 prompt             = no
 
 [ dn_ca ]
-CN = ASU TOIR Internal Root CA
-O  = asu_toir
+CN = MKS Internal Root CA
+O  = infra_mks
 
 [ v3_ca ]
 subjectKeyIdentifier   = hash
