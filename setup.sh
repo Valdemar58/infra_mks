@@ -5,6 +5,7 @@
 #   ./setup.sh                    все стеки по порядку
 #   ./setup.sh --only valhalla    только перечисленные стеки (флаг повторяемый)
 #   ./setup.sh --skip valhalla    все, кроме перечисленных (флаг повторяемый)
+#   ./setup.sh --skip hosts       не проверять записи hosts на этой машине
 #   --dev            keycloak в dev-режиме: свой postgres, без LDAP
 #   --wait           valhalla: дождаться первой сборки тайлов, до 2 часов
 #   --agent          observability: только Alloy-агент на хосте без основного стека
@@ -24,7 +25,7 @@ while [ $# -gt 0 ]; do
     --only) [ $# -ge 2 ] || die "--only требует имя стека"; ONLY+=("$2"); shift 2 ;;
     --skip) [ $# -ge 2 ] || die "--skip требует имя стека"; SKIP+=("$2"); shift 2 ;;
     --dev|--wait|--agent|--renew-certs) FLAGS+=("$1"); shift ;;
-    -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "Неизвестный аргумент: $1" ;;
   esac
 done
@@ -82,7 +83,7 @@ summary() {
   else
     log "nginx на этом хосте не запущен, проверка HTTPS пропущена"
   fi
-  log "Записи DNS или hosts для клиентов:"
+  log "Записи DNS или hosts для клиентов (проверка на этой машине: ./hosts.sh):"
   printf '    %s %s\n' "${SERVER_IP:-<ip-сервера>}" "$(host_names | tr '\n' ' ')"
 }
 
@@ -102,3 +103,7 @@ for svc in "${SERVICES[@]}"; do
 done
 
 summary
+if selected hosts; then
+  log "===== hosts ====="
+  ./hosts.sh || warn "Записи hosts на этой машине не настроены, позже: ./hosts.sh"
+fi
