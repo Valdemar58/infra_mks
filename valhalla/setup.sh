@@ -23,7 +23,15 @@ WINTER_PORT="$(env_value .env VALHALLA_WINTER_PORT)"; WINTER_PORT="${WINTER_PORT
 TOKEN="$(env_value .env ASU_API_TOKEN)"
 PUBLISHER_TAG="$(env_value .env PUBLISHER_TAG)"; PUBLISHER_TAG="${PUBLISHER_TAG:-latest}"
 PUBLISHER_IMAGE="${IMAGE_MIRROR}valhalla-publisher:${PUBLISHER_TAG}"
-VALHALLA_IMAGE="$(compose valhalla config --images 2>/dev/null | grep -m1 valhalla-scripted)"
+# Образ Valhalla берется из compose-файла, чтобы не дублировать тег.
+# Вывод compose читается целиком: ошибка интерполяции или версии compose
+# должна быть видна, а не превращаться в тихий выход.
+if ! IMAGES="$(compose valhalla config --images 2>&1)"; then
+  die "docker compose config для valhalla не работает: $IMAGES"
+fi
+VALHALLA_IMAGE="$(printf '%s\n' "$IMAGES" | grep valhalla-scripted | sort -u || true)"
+VALHALLA_IMAGE="${VALHALLA_IMAGE%%$'\n'*}"
+[ -n "$VALHALLA_IMAGE" ] || die "В docker-compose.yml не найден образ valhalla-scripted: $IMAGES"
 SUMMER_STATUS="http://127.0.0.1:${SUMMER_PORT}/status"
 WINTER_STATUS="http://127.0.0.1:${WINTER_PORT}/status"
 

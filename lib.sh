@@ -13,6 +13,15 @@ log()  { printf '\033[1;34m[%s]\033[0m %s\n' "$LOG_PREFIX" "$*"; }
 warn() { printf '\033[1;33m[%s] ВНИМАНИЕ:\033[0m %s\n' "$LOG_PREFIX" "$*" >&2; }
 die()  { printf '\033[1;31m[%s] ОШИБКА:\033[0m %s\n' "$LOG_PREFIX" "$*" >&2; exit 1; }
 
+# Неожиданный сбой команды под set -e не должен быть тихим выходом:
+# печатается файл, строка и сама команда.
+_on_err() {
+  printf '\033[1;31m[%s] ОШИБКА:\033[0m %s, строка %s: команда завершилась с кодом %s: %s\n' \
+    "$LOG_PREFIX" "${BASH_SOURCE[1]:-$0}" "$2" "$1" "$3" >&2
+}
+set -E
+trap '_on_err "$?" "$LINENO" "$BASH_COMMAND"' ERR
+
 require_cmd() {
   local c
   for c in "$@"; do
@@ -183,6 +192,7 @@ wait_http() {
 _ca_args() {
   local ca="$INFRA_ROOT/certs/ca/rootCA.pem"
   if [ -f "$ca" ]; then printf -- '--cacert\n%s\n' "$ca"; fi
+  return 0
 }
 
 # curl к нашему nginx по имени сервиса, минуя DNS: имя -> 127.0.0.1.
