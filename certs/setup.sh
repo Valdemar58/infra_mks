@@ -133,7 +133,7 @@ init_ca() {
       log "Корневой CA уже есть, оставляем (замена только через --init-ca --force)"
       return 0
     fi
-    expected="$(sed -n 's/^CN *= *//p' "$CA_CNF" | head -1)"
+    expected="$(openssl x509 -in "$CA_PEM" -noout -subject | sed -n 's/.*CN *= *\([^,/]*\).*/\1/p' | sed 's/ *$//')"
     warn "Замена корневого CA: все клиенты (Windows, KES, CI, docker на серверах, бандл CA приложения) должны будут доверять новому корню заново"
     printf 'Для подтверждения введите CN текущего корня (%s): ' "$expected"
     read -r answer
