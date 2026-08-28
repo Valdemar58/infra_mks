@@ -1,0 +1,26 @@
+# Отдельный от каждого проксируемого сервиса reverse-proxy - чтобы
+# добавить новый сервис под этим nginx, достаточно положить новый файл в
+# conf.d/ и подключить этот сервис к сети app-network, без правки этого
+# compose-файла.
+#
+# Запуск (после docker network create app-network - см. infra/README.md):
+#   docker compose -f infra/nginx/docker-compose.yml up -d
+
+services:
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: infra_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./conf.d:/etc/nginx/conf.d:ro
+      - ../certs:/etc/nginx/certs:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    external: true

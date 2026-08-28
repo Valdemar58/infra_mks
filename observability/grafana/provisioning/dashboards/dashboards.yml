@@ -1,0 +1,16 @@
+apiVersion: 1
+
+providers:
+  - name: asu_toir
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    # allowUiUpdates: true - правки в UI Grafana разрешены (сохраняются в
+    # grafana-data, не в файл), но не подхватываются автоматически обратно
+    # в JSON-файл. Как перенести изменения обратно в репозиторий -
+    # см. infra/README.md.
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

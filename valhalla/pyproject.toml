@@ -1,0 +1,56 @@
+[project]
+name = "valhalla-publisher"
+version = "0.1.0"
+description = "Публикация кастомных дорог в тайлы Valhalla"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx==0.28.1",
+    "pydantic==2.12.5",
+    "pydantic-settings==2.14.2",
+    "structlog==25.5.0",
+    # Чтение окрестностей концов дорог из базовой карты при снэппинге
+    "osmium>=4.3.1",
+    # Сборка тайлов одноразовым контейнером через docker.sock
+    "docker>=7.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.2",
+    "ruff==0.15.21",
+    "mypy==2.3.0",
+]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["publisher"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+pythonpath = "."
+addopts = "--import-mode=importlib"
+testpaths = ["tests"]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+python_version = "3.13"
+mypy_path = "."
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+strict_equality = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+show_error_codes = true
+pretty = true
+exclude = ['^\.venv/', '^tests/']

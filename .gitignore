@@ -1,0 +1,15 @@
+# Локальные настройки и секреты
+.env
+.env.*
+!.env.example
+
+# Кэши инструментов
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.tmp
+
+# Выход offline-скриптов: образы и данные для переноса на сервер
+offline/bundle/
