@@ -29,19 +29,56 @@ note_problem() {
     problems=$((problems + 1))
 }
 
+# Сколько секунд тянем кусок файла, чтобы померить скорость
+SPEED_SECONDS=8
+# Дольше этого качать бессмысленно, проще привезти файлы
+MAX_DOWNLOAD_SECONDS=1800
+
+human_time() {
+    local s="$1"
+    if [ "$s" -lt 120 ]; then
+        echo "${s} с"
+    elif [ "$s" -lt 7200 ]; then
+        echo "$((s / 60)) мин"
+    else
+        echo "$((s / 3600)) ч"
+    fi
+}
+
 check_url() {
-    local url="$1" name code
+    local url="$1" name head code len speed eta
     name="$(basename "$url")"
     if [ -f "data/sources/$name" ]; then
         log "уже скачан: $name ($(du -h "data/sources/$name" | cut -f1))"
         return 0
     fi
-    code="$(curl -sIL -o /dev/null -w '%{http_code}' --max-time 20 "$url" 2>/dev/null || true)"
+
+    head="$(curl -sIL --max-time 20 "$url" 2>/dev/null || true)"
+    code="$(printf '%s\n' "$head" | awk '/^HTTP/ {c=$2} END {print c}')"
     case "$code" in
-        2*) log "доступен: $url" ;;
-        000 | "") note_problem "нет ответа: $url" ;;
-        *) note_problem "недоступен (код $code): $url" ;;
+        2*) ;;
+        "") note_problem "нет ответа: $url"; return 0 ;;
+        *) note_problem "недоступен (код $code): $url"; return 0 ;;
     esac
+
+    # Заголовки приходят мгновенно даже при стоящем канале, поэтому меряем
+    # реальную скорость куском файла
+    len="$(printf '%s\n' "$head" | tr -d '\r' | grep -i '^content-length:' | tail -1 | awk '{print $2 + 0}')"
+    speed="$(curl -s -o /dev/null --max-time "$SPEED_SECONDS" -r 0-4194303 -w '%{speed_download}' "$url" 2>/dev/null || echo 0)"
+    speed="${speed%%.*}"
+    [ -n "$speed" ] || speed=0
+
+    if [ "$speed" -lt 1024 ]; then
+        note_problem "канал стоит (${speed} Б/с): $url"
+        return 0
+    fi
+
+    eta=$((len / speed))
+    if [ "$len" -gt 0 ] && [ "$eta" -gt "$MAX_DOWNLOAD_SECONDS" ]; then
+        note_problem "слишком медленно ($((speed / 1024)) КБ/с, качать $(human_time "$eta")): $url"
+        return 0
+    fi
+    log "доступен: $name ($((speed / 1024)) КБ/с, качать $(human_time "$eta"))"
 }
 
 check_image() {
@@ -98,8 +135,9 @@ warn "Помех: $problems. Что делать:"
 cat >&2 <<'HINT'
     образы недоступны   ./offline/mirror.sh --only-blocked с машины с интернетом,
                         либо бандл: offline/bundle.sh и offline/load.sh
-    исходники закрыты   скачать их на машине с интернетом и привезти каталог
-                        tiles/data/sources целиком, это около 1.4 ГБ
+    закрыто или долго   скачать на машине с интернетом и привезти каталог
+                        tiles/data/sources целиком, это около 1.4 ГБ. Скрипты
+                        скачанное не перекачивают
     мало места          освободить диск или собрать на другой машине
     собирать негде      собрать где есть интернет и привезти результат:
                         offline/bundle.sh --with-basemap, затем offline/load.sh
