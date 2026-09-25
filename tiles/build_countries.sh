@@ -17,13 +17,11 @@ cd "$DIR"
 . ../lib.sh
 LOG_PREFIX=tiles-countries
 
-# Точка зрения задается набором стран: rus это де-юре российская. Другие
-# варианты лежат по тому же адресу с суффиксом ukr, chn и так далее
-COUNTRIES_URL=https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_countries_rus.zip
-REGIONS_URL=https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_1_states_provinces.zip
-
 load_root_env
 ensure_env_file .
+# Адреса исходников общие с check_sources.sh
+# shellcheck disable=SC1091
+. ./sources.env
 
 mkdir -p data/sources
 for url in "$COUNTRIES_URL" "$REGIONS_URL"; do
