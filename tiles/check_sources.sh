@@ -23,10 +23,22 @@ PBF_NAME="$(env_value .env TILES_PBF_NAME)"; PBF_NAME="${PBF_NAME:-base_map.osm.
 PBF="$PBF_DIR/$PBF_NAME"
 
 problems=0
+missing_files=()
+image_problem=0
+disk_problem=0
 
 note_problem() {
     warn "$1"
     problems=$((problems + 1))
+}
+
+note_missing_file() {
+    local name="$1" len="$2"
+    if [ "${len:-0}" -gt 0 ]; then
+        missing_files+=("$name ($((len / 1048576)) МБ)")
+    else
+        missing_files+=("$name")
+    fi
 }
 
 # Кусок файла для замера: больше, чем успевает пройти до обрыва
@@ -61,8 +73,8 @@ check_url() {
     code="$(printf '%s\n' "$head" | awk '/^HTTP/ {c=$2} END {print c}')"
     case "$code" in
         2*) ;;
-        "") note_problem "нет ответа: $url"; return 0 ;;
-        *) note_problem "недоступен (код $code): $url"; return 0 ;;
+        "") note_missing_file "$name" 0; note_problem "нет ответа: $url"; return 0 ;;
+        *) note_missing_file "$name" 0; note_problem "недоступен (код $code): $url"; return 0 ;;
     esac
 
     # Заголовки приходят мгновенно даже при мертвом канале, а передача умеет
@@ -82,20 +94,24 @@ check_url() {
 
     # 28 это обрыв по --speed-time или по --max-time
     if [ "$rc" = 28 ]; then
+        note_missing_file "$name" "$len"
         note_problem "передача встала: получено $((got / 1024)) КБ за ${spent} с, дальше тишина ($url)"
         return 0
     fi
     if [ "$rc" != 0 ] || [ "$got" -eq 0 ]; then
+        note_missing_file "$name" "$len"
         note_problem "не качается (код curl $rc): $url"
         return 0
     fi
     if [ "$speed" -lt 1024 ]; then
+        note_missing_file "$name" "$len"
         note_problem "канал стоит (${speed} Б/с): $url"
         return 0
     fi
 
     eta=$((len / speed))
     if [ "$len" -gt 0 ] && [ "$eta" -gt "$MAX_DOWNLOAD_SECONDS" ]; then
+        note_missing_file "$name" "$len"
         note_problem "слишком медленно ($((speed / 1024)) КБ/с, качать $(human_time "$eta")): $url"
         return 0
     fi
@@ -109,6 +125,7 @@ check_image() {
     elif docker manifest inspect "$image" >/dev/null 2>&1; then
         log "образ доступен: $image"
     else
+        image_problem=1
         note_problem "образ не скачать: $image"
     fi
 }
@@ -122,6 +139,7 @@ check_url "$REGIONS_URL"
 
 log "===== образы ====="
 if ! docker info >/dev/null 2>&1; then
+    image_problem=1
     note_problem "docker не отвечает, образы не проверить"
 else
     while read -r image; do
@@ -140,6 +158,7 @@ if [ -f "$PBF" ]; then
     if [ "$free_gb" -ge "$need_gb" ]; then
         log "места: свободно ${free_gb} ГБ, нужно около ${need_gb} ГБ"
     else
+        disk_problem=1
         note_problem "мало места: свободно ${free_gb} ГБ, нужно около ${need_gb} ГБ"
     fi
 else
@@ -153,14 +172,28 @@ if [ "$problems" -eq 0 ]; then
 fi
 
 warn "Помех: $problems. Что делать:"
-cat >&2 <<'HINT'
-    образы недоступны   ./offline/mirror.sh --only-blocked с машины с интернетом,
-                        либо бандл: offline/bundle.sh и offline/load.sh
-    закрыто или долго   скачать на машине с интернетом и привезти каталог
-                        tiles/data/sources целиком, это около 1.4 ГБ. Скрипты
-                        скачанное не перекачивают
-    мало места          освободить диск или собрать на другой машине
-    собирать негде      собрать где есть интернет и привезти результат:
-                        offline/bundle.sh --with-basemap, затем offline/load.sh
-HINT
+
+if [ "${#missing_files[@]}" -gt 0 ]; then
+    {
+        echo "  Скачать на машине с интернетом и положить в tiles/data/sources:"
+        printf '    %s\n' "${missing_files[@]}"
+        echo "  Скрипты скачанное не перекачивают, остальные файлы трогать не нужно."
+    } >&2
+fi
+
+if [ "$image_problem" = 1 ]; then
+    {
+        echo "  Образы: ./offline/mirror.sh --only-blocked с машины с интернетом"
+        echo "  либо бандл: offline/bundle.sh и offline/load.sh"
+    } >&2
+fi
+
+if [ "$disk_problem" = 1 ]; then
+    echo "  Место: освободить диск или собирать на другой машине" >&2
+fi
+
+{
+    echo "  Если собирать здесь не выходит вовсе, соберите там, где есть интернет,"
+    echo "  и привезите результат: offline/bundle.sh --with-basemap, затем offline/load.sh"
+} >&2
 exit 1
