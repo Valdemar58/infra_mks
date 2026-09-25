@@ -29,8 +29,12 @@ note_problem() {
     problems=$((problems + 1))
 }
 
-# Сколько секунд тянем кусок файла, чтобы померить скорость
-SPEED_SECONDS=8
+# Кусок файла для замера: больше, чем успевает пройти до обрыва
+SPEED_BYTES=16777216
+SPEED_MAX_SECONDS=30
+# Передача считается вставшей, если скорость ниже этого столько секунд
+STALL_BYTES_PER_SECOND=10240
+STALL_SECONDS=8
 # Дольше этого качать бессмысленно, проще привезти файлы
 MAX_DOWNLOAD_SECONDS=1800
 
@@ -61,13 +65,30 @@ check_url() {
         *) note_problem "недоступен (код $code): $url"; return 0 ;;
     esac
 
-    # Заголовки приходят мгновенно даже при стоящем канале, поэтому меряем
-    # реальную скорость куском файла
+    # Заголовки приходят мгновенно даже при мертвом канале, а передача умеет
+    # начаться бодро и встать через несколько секунд. Поэтому тянем кусок
+    # подольше и следим, не остановилась ли она
     len="$(printf '%s\n' "$head" | tr -d '\r' | grep -i '^content-length:' | tail -1 | awk '{print $2 + 0}')"
-    speed="$(curl -s -o /dev/null --max-time "$SPEED_SECONDS" -r 0-4194303 -w '%{speed_download}' "$url" 2>/dev/null || echo 0)"
-    speed="${speed%%.*}"
-    [ -n "$speed" ] || speed=0
+    local out rc=0 got spent
+    out="$(curl -s -o /dev/null \
+        -r "0-$((SPEED_BYTES - 1))" \
+        --speed-limit "$STALL_BYTES_PER_SECOND" --speed-time "$STALL_SECONDS" \
+        --max-time "$SPEED_MAX_SECONDS" \
+        -w '%{size_download} %{time_total} %{speed_download}' \
+        "$url" 2>/dev/null)" || rc=$?
+    got="$(printf '%s' "$out" | awk '{print $1 + 0}')"
+    spent="$(printf '%s' "$out" | awk '{print int($2)}')"
+    speed="$(printf '%s' "$out" | awk '{print int($3)}')"
 
+    # 28 это обрыв по --speed-time или по --max-time
+    if [ "$rc" = 28 ]; then
+        note_problem "передача встала: получено $((got / 1024)) КБ за ${spent} с, дальше тишина ($url)"
+        return 0
+    fi
+    if [ "$rc" != 0 ] || [ "$got" -eq 0 ]; then
+        note_problem "не качается (код curl $rc): $url"
+        return 0
+    fi
     if [ "$speed" -lt 1024 ]; then
         note_problem "канал стоит (${speed} Б/с): $url"
         return 0
@@ -78,7 +99,7 @@ check_url() {
         note_problem "слишком медленно ($((speed / 1024)) КБ/с, качать $(human_time "$eta")): $url"
         return 0
     fi
-    log "доступен: $name ($((speed / 1024)) КБ/с, качать $(human_time "$eta"))"
+    log "доступен: $name ($((speed / 1024)) КБ/с на $((got / 1024 / 1024)) МБ, качать $(human_time "$eta"))"
 }
 
 check_image() {
