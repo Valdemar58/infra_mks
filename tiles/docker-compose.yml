@@ -1,0 +1,75 @@
+# Подложка карт: tileserver-gl рендерит растровые тайлы на лету из векторного
+# basemap.mbtiles. Стиль и шрифты лежат внутри образа, в работе из интернета
+# ничего не тянется. Снаружи подложку отдает nginx на HOST_TILES, порт на хост
+# открыт только на 127.0.0.1 для проверок.
+#
+# За тайлами ходит браузер пользователя, а не приложение, поэтому имя должно
+# резолвиться с рабочих мест, а не только внутри app-network.
+#
+# Данные bind mount в data/: config.json из репозитория и basemap.mbtiles,
+# который собирает planetiler под профилем build. В проде профиль не нужен:
+# карта привозится готовым файлом.
+#
+# Установка и обновления: ./setup.sh в этом каталоге, подробности в README.md.
+
+services:
+
+  tileserver:
+    image: ${IMAGE_MIRROR:-}maptiler/tileserver-gl:v5.6.0
+    container_name: infra_tiles
+    restart: unless-stopped
+    command:
+      - "--config"
+      - "/data/config.json"
+      - "--public_url"
+      # Подстановка без :? намеренно: list-images.sh читает config --images
+      # с подавлением ошибок, и обязательная переменная выкинула бы образ
+      # из бандла молча. Наличие HOST_TILES проверяет setup.sh
+      - "https://${HOST_TILES:-appsrvs.tiles}/"
+    ports:
+      - "127.0.0.1:${TILES_PORT:-8081}:8080"
+    volumes:
+      - ./data:/data
+    networks:
+      app-network:
+        aliases:
+          - tileserver
+    healthcheck:
+      # Команду проверки несет сам образ, здесь только сроки: ни curl, ни wget
+      # в нем нет, обычной для стека проверкой не обойтись
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Сборка карты, запускается build.sh на машине с интернетом. Профиль build
+  # держит его вне обычного up и вне списка образов для бандла. В app-network
+  # не входит: сборочная машина может не быть сервером и этой сети не иметь.
+  planetiler:
+    image: ${IMAGE_MIRROR:-}ghcr.io/onthegomap/planetiler:0.10.2
+    profiles: ["build"]
+    environment:
+      JAVA_TOOL_OPTIONS: -Xmx${TILES_BUILD_XMX:-2g}
+    volumes:
+      - ./data:/data
+      - ${TILES_PBF_DIR:-../valhalla/custom_files/summer}:/pbf:ro
+      # Схема слоя стран, ее читает build_countries.sh
+      - ./countries.yml:/countries.yml:ro
+
+  # Сшивка геометрии стран перед сборкой слоя: planetiler пространственных
+  # операций не умеет, а области нужно перенести из одной страны в другую.
+  # Профиль build, в проде не нужен
+  geometry:
+    image: ${IMAGE_MIRROR:-}python:3.13-slim
+    profiles: ["build"]
+    volumes:
+      - ./data:/data
+      - ./merge_countries.py:/merge_countries.py:ro
+    command:
+      - sh
+      - -c
+      - pip install --quiet --no-cache-dir shapely pyshp && python /merge_countries.py
+
+networks:
+  app-network:
+    external: true

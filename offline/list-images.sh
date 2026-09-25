@@ -14,6 +14,8 @@ export IMAGE_MIRROR=""
   compose docker_registry config --images
   compose observability config --images
   compose valhalla --profile winter config --images
+  # без profile build: planetiler нужен только на машине с интернетом
+  compose tiles config --images
   # htpasswd для registry берется из образа httpd
   echo httpd:2
 } 2>/dev/null | sed '/^$/d' | sort -u

@@ -1,0 +1,58 @@
+# Полигоны стран для подложки: суша всего мира, выделение России и точка зрения
+# на спорные территории. В схеме OpenMapTiles полигонов стран нет вообще, только
+# линии границ и точки-подписи, поэтому слой собирается отдельно.
+#
+# Источник это GeoJSON, который готовит merge_countries.py из наборов Natural
+# Earth: берется вариант с точкой зрения России и дополняется областями,
+# которых в наборе версии 5.1.1 еще нет.
+#
+# Сборка: ./build_countries.sh
+
+schema_name: Countries
+schema_description: Полигоны стран Natural Earth, точка зрения России
+attribution: <a href="https://www.naturalearthdata.com/">© Natural Earth</a>
+version: 1.0.0
+is_overlay: false
+
+args:
+  minzoom: 0
+  # Линии границ переживают растягивание на глубокие зумы хуже заливки,
+  # поэтому предел выше, чем нужно самой заливке
+  maxzoom: 8
+
+sources:
+  countries:
+    type: geojson
+    local_path: /data/sources/countries_merged.geojson
+    projection: EPSG:4326
+  borders:
+    type: geojson
+    local_path: /data/sources/borders_merged.geojson
+    projection: EPSG:4326
+
+layers:
+  - id: countries
+    features:
+      # Русские названия отсюда не берутся: Natural Earth кладет их в dbf в
+      # UTF-8, но не кладет рядом файл .cpg, поэтому читаются они как латиница
+      # и превращаются в мусор. Подписи стран дает слой place основного
+      # архива, там есть name:ru
+      - source: countries
+        geometry: polygon
+        attributes:
+          - key: iso_a2
+            tag_value: iso_a2
+          - key: iso_a3
+            tag_value: iso_a3
+          - key: name
+            tag_value: name
+
+  # Линии государственных границ по той же геометрии. Берутся отсюда, потому
+  # что в тайлах OSM у пограничных линий нет полей с кодами стран и границу
+  # 1991 года нечем отличить от остальных
+  - id: borders
+    features:
+      - source: borders
+        geometry: line
+        # Без этого короткие участки границ пропадают на обзорных зумах
+        min_size: 0

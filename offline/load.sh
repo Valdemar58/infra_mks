@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Разворачивает бандл offline/bundle.sh на сервере без интернета: образы,
-# default_speeds.json, при наличии карта и готовые летние тайлы.
+# default_speeds.json, при наличии карта, готовые летние тайлы и подложка карт.
 #   ./load.sh [каталог бандла]   по умолчанию offline/bundle
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -37,5 +37,13 @@ elif [ -f "$BUNDLE/base_map.osm.pbf" ] && [ ! -f valhalla/custom_files/summer/ba
   cp "$BUNDLE/base_map.osm.pbf" valhalla/custom_files/summer/
   log "Карта положена в valhalla/custom_files/summer"
 fi
+
+for map in basemap countries; do
+  if [ -f "$BUNDLE/$map.mbtiles" ] && [ ! -f "tiles/data/$map.mbtiles" ]; then
+    mkdir -p tiles/data
+    cp "$BUNDLE/$map.mbtiles" tiles/data/
+    log "Файл $map.mbtiles положен в tiles/data"
+  fi
+done
 
 log "Готово. Дальше: OFFLINE=1 в .env и ./setup.sh"

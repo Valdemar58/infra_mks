@@ -24,9 +24,14 @@ services:
       - ./templates:/etc/nginx/templates:ro
       - ./snippets:/etc/nginx/snippets:ro
       - ../certs:/etc/nginx/certs:ro
+      # Кэш тайлов подложки переживает пересоздание контейнера
+      - tiles-cache:/var/cache/nginx/tiles
     networks:
       - app-network
     restart: unless-stopped
+
+volumes:
+  tiles-cache:
 
 networks:
   app-network:

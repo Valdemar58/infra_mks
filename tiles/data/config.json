@@ -1,0 +1,26 @@
+{
+  "options": {
+    "paths": {
+      "root": "/data",
+      "fonts": "/usr/src/app/node_modules/tileserver-gl-styles/fonts",
+      "styles": "styles",
+      "mbtiles": "/data"
+    }
+  },
+  "styles": {
+    "asu": {
+      "style": "asu/style.json"
+    },
+    "basic": {
+      "style": "/usr/src/app/node_modules/tileserver-gl-styles/styles/basic-preview/style.json"
+    }
+  },
+  "data": {
+    "v3": {
+      "mbtiles": "basemap.mbtiles"
+    },
+    "countries": {
+      "mbtiles": "countries.mbtiles"
+    }
+  }
+}

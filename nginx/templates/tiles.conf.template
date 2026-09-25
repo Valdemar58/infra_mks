@@ -1,0 +1,49 @@
+# Подложка карт (стек tiles), алиас tileserver в app-network. Сюда ходит
+# браузер пользователя, а не приложение, поэтому имя должно резолвиться с
+# рабочих мест. CORS обязателен: plotly рисует растровый слой через MapLibre и
+# тянет тайлы через fetch, без заголовка карта останется пустой.
+server {
+    listen 80;
+    server_name ${HOST_TILES};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${HOST_TILES};
+    include /etc/nginx/snippets/tls.conf;
+    include /etc/nginx/snippets/security_headers.conf;
+
+    set $upstream_tiles tileserver;
+
+    # Живость мимо кэша, иначе setup.sh и мониторинг увидят старый ответ
+    location = /health {
+        proxy_pass http://$upstream_tiles:8080;
+        include /etc/nginx/snippets/proxy_headers.conf;
+        proxy_cache off;
+    }
+
+    location / {
+        proxy_pass http://$upstream_tiles:8080;
+        include /etc/nginx/snippets/proxy_headers.conf;
+
+        # Рендер тайла стоит дорого, поэтому кэшируем отрендеренное, а
+        # одновременные запросы одного тайла держим на одном рендере
+        proxy_cache tiles;
+        proxy_cache_valid 200 90d;
+        proxy_cache_valid 404 1m;
+        proxy_cache_lock on;
+        proxy_cache_lock_timeout 30s;
+        proxy_cache_use_stale updating error timeout;
+        add_header X-Cache-Status $upstream_cache_status always;
+
+        # Заголовки задаем сами, чтобы не было пары значений с апстримом
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_hide_header Cache-Control;
+
+        # add_header не наследуется в location со своими add_header
+        include /etc/nginx/snippets/security_headers.conf;
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Cache-Control "public, max-age=604800" always;
+    }
+}

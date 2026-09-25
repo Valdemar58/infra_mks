@@ -14,6 +14,7 @@
 | `https://appsrvs.registry` | docker registry, UI и `docker login/push/pull` | `registry_ui:80` |
 | `https://appsrvs.grafana` | Grafana, логи | `grafana:3000` |
 | `https://appsrvs.route/summer/`, `/winter/` | Valhalla, летний и зимний сезон | `valhalla-summer:8002`, `valhalla-winter:8002` |
+| `https://appsrvs.tiles` | подложка карт, тайлы читает браузер пользователя | `tileserver:8080` |
 
 Внутри `app-network` приложение ходит к сервисам напрямую по алиасам (`keycloak`, `valhalla-summer`, `valhalla-winter`, `loki`), nginx для него не обязателен.
 
@@ -62,6 +63,7 @@ nginx/              reverse-proxy, шаблоны конфигов в templates/
 keycloak/           OIDC, realm и тема входа
 docker_registry/    приватный registry с UI
 observability/      Loki, Alloy, Grafana
+tiles/              подложка карт, свой README.md
 valhalla/           маршрутизация, свой README.md
 ```
 
@@ -160,6 +162,7 @@ IP для записей берется из `HOSTS_IP` (`.env`), по умол�
 ```
 ./offline/bundle.sh                        # образы и default_speeds.json в offline/bundle/
 ./offline/bundle.sh --with-map --with-tiles # плюс карта и готовый летний тайлсет (~15 ГБ), без часа сборки на сервере
+./offline/bundle.sh --with-basemap         # плюс подложка карт, ее на сервере не собрать
 ```
 
 Каталог переносится на сервер, там:
@@ -237,6 +240,10 @@ Loki хранит логи 90 дней (`loki-config.yml`), Alloy собирае
 На хостах без основного стека (приложение или Valhalla на другом сервере) поднимается только агент: `./setup.sh --only observability --agent`. Он пишет в Loki по `LOKI_URL` через `app-network`, Loki для этого имеет алиас `loki`.
 
 Дашборд «Активность приложения» (`grafana/provisioning/dashboards/activity.json`): запросы к API во времени и по статусам, ошибки, топ пользователей и эндпоинтов, просмотры страниц. Правки из UI в файл не попадают сами. Чтобы зафиксировать: открыть дашборд, настройки, JSON Model, сохранить поверх `activity.json`, убрать поля `id` и `version`, оставить `uid` как есть, закоммитить. Через `updateIntervalSeconds: 30` файл снова станет источником правды.
+
+### tiles
+
+Подложка для карт приложения: tileserver-gl рендерит растровые тайлы из векторных, собранных planetiler. Нужна потому, что волонтерские серверы OpenStreetMap отдают из корпоративной сети `403`. За тайлами ходит браузер пользователя, поэтому `HOST_TILES` должен резолвиться с рабочих мест. Архивов два: детализация России из выгрузки OSM и полигоны стран всего мира из Natural Earth, они собираются на машине с интернетом и переносятся файлами. Свой стиль `asu` лежит в репозитории и правится без пересборки данных. Подробности в [tiles/README.md](tiles/README.md).
 
 ### valhalla
 

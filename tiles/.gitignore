@@ -1,0 +1,4 @@
+data/*.mbtiles
+data/sources/
+data/tmp/
+data/tile_weights.tsv.gz

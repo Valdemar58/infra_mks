@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 # Бандл для сервера без интернета: образы (docker save), файлы, которые
-# образы иначе качают с GitHub, по желанию карта и готовые летние тайлы.
-# Запускается на машине с интернетом, на сервере разворачивается load.sh.
-#   ./bundle.sh [--with-map] [--with-tiles] [каталог]   по умолчанию offline/bundle
+# образы иначе качают с GitHub, по желанию карта, готовые летние тайлы и
+# подложка карт. Запускается на машине с интернетом, на сервере
+# разворачивается load.sh.
+#   ./bundle.sh [--with-map] [--with-tiles] [--with-basemap] [каталог]
+# По умолчанию каталог offline/bundle. --with-tiles это тайлы маршрутизации
+# Valhalla, --with-basemap это подложка карт.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 . ./lib.sh
 LOG_PREFIX=bundle
 
-WITH_MAP=0 WITH_TILES=0 OUT=offline/bundle
+WITH_MAP=0 WITH_TILES=0 WITH_BASEMAP=0 OUT=offline/bundle
 while [ $# -gt 0 ]; do
   case "$1" in
     --with-map) WITH_MAP=1 ;;
     --with-tiles) WITH_TILES=1 ;;
+    --with-basemap) WITH_BASEMAP=1 ;;
     *) OUT="$1" ;;
   esac
   shift
@@ -47,6 +51,13 @@ if [ "$WITH_TILES" = 1 ]; then
   log "Упаковываем летний тайлсет (~11 ГБ)"
   tar -cf "$OUT/tiles_summer.tar" -C valhalla/custom_files summer
   FILES+=(tiles_summer.tar)
+fi
+if [ "$WITH_BASEMAP" = 1 ]; then
+  [ -f tiles/data/basemap.mbtiles ] || die "Нет tiles/data/basemap.mbtiles: соберите подложку ./tiles/build.sh"
+  [ -f tiles/data/countries.mbtiles ] || die "Нет tiles/data/countries.mbtiles: соберите слой стран ./tiles/build_countries.sh"
+  log "Копируем подложку карт ($(du -h tiles/data/basemap.mbtiles | cut -f1)) и слой стран"
+  cp tiles/data/basemap.mbtiles tiles/data/countries.mbtiles "$OUT/"
+  FILES+=(basemap.mbtiles countries.mbtiles)
 fi
 
 ( cd "$OUT" && sha256sum "${FILES[@]}" > MANIFEST )

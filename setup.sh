@@ -19,7 +19,7 @@ cd "$(dirname "$0")"
 . ./lib.sh
 LOG_PREFIX=setup
 
-SERVICES=(certs nginx keycloak docker_registry observability valhalla)
+SERVICES=(certs nginx keycloak docker_registry observability tiles valhalla)
 ONLY=()
 SKIP=()
 FLAGS=()
@@ -91,6 +91,7 @@ health_path() {
     HOST_GRAFANA) echo /api/health ;;
     HOST_API) echo /health ;;
     HOST_ROUTE) echo /summer/status ;;
+    HOST_TILES) echo /health ;;
     *) echo / ;;
   esac
 }
