@@ -2,9 +2,10 @@
 
 import httpx
 
-from publisher.models import CustomRoad, PublishRequest, PublishStatus
+from publisher.models import CustomRoad, OsmWayOverride, PublishRequest, PublishStatus
 
 _ROADS_PATH = "/v1/custom-roads"
+_OVERRIDES_PATH = "/v1/custom-roads/overrides"
 _REQUESTS_PATH = "/v1/custom-roads/publish-requests"
 
 
@@ -58,6 +59,13 @@ class AsuClient:
             params={"active": True, "is_deleted": False},
         )
         return [CustomRoad.model_validate(item) for item in response.json()]
+
+    def active_overrides(self) -> list[OsmWayOverride]:
+        """Действующие переопределения существующих дорог OSM"""
+        response = self._request(
+            "GET", _OVERRIDES_PATH, params={"active": True, "is_deleted": False}
+        )
+        return [OsmWayOverride.model_validate(item) for item in response.json()]
 
     def mark_status(
         self,

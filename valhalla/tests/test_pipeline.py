@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from publisher.models import CustomRoad
+from publisher.models import CustomRoad, OsmWayOverride
+from publisher.osc_export import OsmWay
 from publisher.pipeline import PublishError, PublishPipeline
 
 _MIN_VALHALLA_CONFIG = {
@@ -25,6 +26,7 @@ class _FakeRunner:
     def __init__(self) -> None:
         self.extract_calls: list = []
         self.apply_calls: list = []
+        self.way_calls: list = []
 
     def extract(self, base_pbf: Path, config_path: Path, workdir: Path) -> None:
         self.extract_calls.append((base_pbf, config_path, workdir))
@@ -35,6 +37,10 @@ class _FakeRunner:
     def apply_changes(self, base_pbf: Path, osc_path: Path, output_pbf: Path) -> None:
         self.apply_calls.append((base_pbf, osc_path, output_pbf))
         output_pbf.write_bytes(b"merged")
+
+    def get_ways(self, base_pbf: Path, way_ids: list[int], output: Path) -> None:
+        self.way_calls.append(way_ids)
+        output.write_bytes(b"")
 
 
 class _FakeTiles:
@@ -123,6 +129,28 @@ def test_prepare_takes_only_season_roads(tmp_path):
     )
 
     assert exported == 2
+
+
+def test_prepare_reads_overridden_ways_from_the_map(tmp_path, monkeypatch):
+    """Переопределения читают свои way из карты и вливаются вместе с дорогами"""
+    _make_live(tmp_path)
+    runner = _FakeRunner()
+    monkeypatch.setattr(
+        "publisher.osc_export.overridden_ways",
+        lambda overrides, base_pbf, workdir, run, season: [
+            OsmWay(id=o.way_id, version=2, nodes=[1, 2], tags={}) for o in overrides
+        ],
+    )
+    pipeline = _pipeline(tmp_path, runner)
+
+    exported = pipeline.prepare(
+        "summer", [], [OsmWayOverride(way_id=4242, season="winter_only")]
+    )
+
+    assert exported == 1
+    assert len(runner.apply_calls) == 1
+    osc = (tmp_path / "summer_staging" / "changes.osc").read_text(encoding="utf-8")
+    assert '<way id="4242" version="2">' in osc
 
 
 def test_prepare_without_roads_skips_apply(tmp_path):

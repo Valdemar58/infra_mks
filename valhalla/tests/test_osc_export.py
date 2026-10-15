@@ -2,13 +2,54 @@
 
 import xml.etree.ElementTree as ET
 
-from publisher.models import CustomRoad
+from publisher.models import CustomRoad, OsmWayOverride
 from publisher.osc_export import (
     ID_OFFSET,
+    OsmWay,
     build_osc,
     collect_snap_endpoints,
+    override_tags,
     roads_for_season,
 )
+
+_WAY = OsmWay(
+    id=4242, version=7, nodes=[1, 2, 3], tags={"highway": "track", "name": "Зимник"}
+)
+
+
+def test_winter_road_is_closed_in_summer_only():
+    override = OsmWayOverride(way_id=4242, season="winter_only", maxweight_t=30)
+
+    summer = override_tags(_WAY, override, "summer")
+    winter = override_tags(_WAY, override, "winter")
+
+    assert summer["motor_vehicle"] == "no"
+    assert "motor_vehicle" not in winter
+    assert winter["ice_road"] == "yes"
+    assert summer["maxweight"] == winter["maxweight"] == "30.0"
+    assert summer["highway"] == "track"
+
+
+def test_closed_road_is_closed_in_both_seasons():
+    override = OsmWayOverride(way_id=4242, season="closed")
+
+    assert override_tags(_WAY, override, "winter")["motor_vehicle"] == "no"
+
+
+def test_modified_way_keeps_its_nodes_and_gets_new_tags():
+    tags = override_tags(
+        _WAY, OsmWayOverride(way_id=4242, maxwidth_m=2.5, maxlength_m=12), "summer"
+    )
+    modified = OsmWay(id=4242, version=8, nodes=_WAY.nodes, tags=tags)
+
+    root = ET.fromstring(build_osc([], {}, [modified]))
+
+    [way] = root.findall("./modify/way")
+    assert (way.get("id"), way.get("version")) == ("4242", "8")
+    assert [nd.get("ref") for nd in way.findall("nd")] == ["1", "2", "3"]
+    way_tags = {t.get("k"): t.get("v") for t in way.findall("tag")}
+    assert way_tags["maxwidth"] == "2.5"
+    assert way_tags["maxlength"] == "12.0"
 
 
 def _road(road_id: int, **overrides) -> CustomRoad:

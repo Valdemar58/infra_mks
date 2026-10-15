@@ -46,7 +46,8 @@ def process_pending(client: AsuClient, pipeline: PublishPipeline) -> int:
 
         try:
             roads = client.active_roads()
-            pipeline.run(request.season, roads, report=report)
+            overrides = client.active_overrides()
+            pipeline.run(request.season, roads, report=report, overrides=overrides)
             log.info("publish_succeeded", request_id=request.id)
         except Exception as exc:
             log.error("publish_failed", request_id=request.id, error=str(exc))

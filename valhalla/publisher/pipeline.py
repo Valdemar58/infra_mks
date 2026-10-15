@@ -15,7 +15,7 @@ from typing import Protocol
 
 import structlog
 
-from publisher.models import CustomRoad, PublishStatus
+from publisher.models import CustomRoad, OsmWayOverride, PublishStatus
 from publisher.osc_export import export_osc, roads_for_season
 from publisher.osmium_runner import OsmiumRunner
 from publisher.tiles import TileService
@@ -75,10 +75,11 @@ class PublishPipeline:
         season: str,
         roads: list[CustomRoad],
         report: StatusReporter = _noop_reporter,
+        overrides: list[OsmWayOverride] | None = None,
     ) -> None:
         """Полный цикл публикации сезона. Исключения не глушит."""
         report("preparing")
-        exported = self.prepare(season, roads)
+        exported = self.prepare(season, roads, overrides)
         report("prepared", roads_exported=exported)
 
         report("building")
@@ -94,8 +95,13 @@ class PublishPipeline:
         self.tiles.restart_live(season)
         report("succeeded")
 
-    def prepare(self, season: str, roads: list[CustomRoad]) -> int:
-        """Готовит staging-каталог, возвращает число выгруженных дорог."""
+    def prepare(
+        self,
+        season: str,
+        roads: list[CustomRoad],
+        overrides: list[OsmWayOverride] | None = None,
+    ) -> int:
+        """Готовит staging-каталог, возвращает число выгруженных объектов"""
         live = self.files_dir / season
         staging = self.files_dir / f"{season}_staging"
         base_pbf = live / "base_map.osm.pbf"
@@ -123,6 +129,8 @@ class PublishPipeline:
             output=staging / "changes.osc",
             runner=self.runner,
             snap_tolerance_m=self.snap_tolerance_m,
+            overrides=overrides,
+            season=season,
         )
         if exported:
             final_pbf = staging / "base_map_final.osm.pbf"

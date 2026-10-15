@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict
 RoadType = Literal["access_road", "winter_road", "lpu_internal", "connector"]
 RoadSeason = Literal["all", "summer", "winter"]
 PublishSeason = Literal["summer", "winter"]
+OverrideSeason = Literal["all", "winter_only", "closed"]
 
 PublishStatus = Literal[
     "requested",
@@ -34,8 +35,28 @@ class CustomRoad(BaseModel):
     maxspeed_kmh: int | None = None
     maxweight_t: float | None = None
     maxheight_m: float | None = None
+    maxwidth_m: float | None = None
+    maxlength_m: float | None = None
     season: RoadSeason = "all"
     connect_endpoints: bool = True
+
+
+class OsmWayOverride(BaseModel):
+    """Свойства существующей дороги OSM, которые публикация заменяет.
+
+    winter_only закрывает дорогу в летнем графе, closed в обоих.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    way_id: int
+    name: str = ""
+    season: OverrideSeason = "all"
+    maxspeed_kmh: int | None = None
+    maxweight_t: float | None = None
+    maxheight_m: float | None = None
+    maxwidth_m: float | None = None
+    maxlength_m: float | None = None
 
 
 class PublishRequest(BaseModel):

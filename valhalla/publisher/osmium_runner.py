@@ -12,6 +12,8 @@ class OsmiumRunner(Protocol):
         self, base_pbf: Path, osc_path: Path, output_pbf: Path
     ) -> None: ...
 
+    def get_ways(self, base_pbf: Path, way_ids: list[int], output: Path) -> None: ...
+
 
 class LocalOsmiumRunner:
     """Osmium-tool установлен в образе publisher."""
@@ -34,6 +36,20 @@ class LocalOsmiumRunner:
                 str(base_pbf.resolve()),
             ],
             cwd=workdir,
+        )
+
+    def get_ways(self, base_pbf: Path, way_ids: list[int], output: Path) -> None:
+        """Выбранные way из карты без их узлов: нужны теги и ссылки на узлы"""
+        self._run(
+            [
+                "osmium",
+                "getid",
+                str(base_pbf.resolve()),
+                *(f"w{way_id}" for way_id in way_ids),
+                "-o",
+                str(output.resolve()),
+                "--overwrite",
+            ]
         )
 
     def apply_changes(self, base_pbf: Path, osc_path: Path, output_pbf: Path) -> None:

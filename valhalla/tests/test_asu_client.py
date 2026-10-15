@@ -85,6 +85,31 @@ def test_active_roads_asks_only_for_live_roads():
     assert roads[0].connect_endpoints is True
 
 
+def test_active_overrides_read_limits_and_season():
+    seen: list[httpx.Request] = []
+    payload = {
+        "id": 1,
+        "way_id": 4242,
+        "name": "Зимник",
+        "season": "winter_only",
+        "maxweight_t": 30.0,
+        "geometry": [[64.0, 69.5]],
+        "created_by": "ivanov",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=[payload])
+
+    with _client(handler) as client:
+        overrides = client.active_overrides()
+
+    assert seen[0].url.path == "/v1/custom-roads/overrides"
+    assert seen[0].url.params["active"] == "true"
+    assert (overrides[0].way_id, overrides[0].season) == (4242, "winter_only")
+    assert overrides[0].maxweight_t == 30.0
+
+
 def test_mark_status_sends_only_filled_fields():
     bodies: list[dict] = []
 

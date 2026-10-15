@@ -9,18 +9,22 @@
 
 Полученный .osc вливается в базовую карту osmium apply-changes на этапе
 подготовки staging-каталога перед сборкой тайлов.
+
+Переопределения существующих дорог идут в .osc блоком modify: way берется
+из карты как есть, к его тегам добавляются ограничения и закрытие по сезону.
 """
 
 import json
 import math
 import tempfile
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from pathlib import Path
 
 import osmium
 import structlog
 
-from publisher.models import CustomRoad
+from publisher.models import CustomRoad, OsmWayOverride
 from publisher.osmium_runner import OsmiumRunner
 
 log = structlog.get_logger(__name__)
@@ -146,24 +150,115 @@ def build_snap_map(
     return snap_map
 
 
+def _limit_tags(item: CustomRoad | OsmWayOverride) -> dict[str, str]:
+    """Ограничения скорости и габаритов, их учитывает грузовой профиль"""
+    limits = {
+        "maxspeed": item.maxspeed_kmh,
+        "maxweight": item.maxweight_t,
+        "maxheight": item.maxheight_m,
+        "maxwidth": item.maxwidth_m,
+        "maxlength": item.maxlength_m,
+    }
+    return {key: str(value) for key, value in limits.items() if value is not None}
+
+
 def _road_tags(road: CustomRoad) -> dict[str, str]:
     tags = {"highway": _HIGHWAY_BY_ROAD_TYPE[road.road_type], "name": road.name}
     if road.road_type == "winter_road":
         tags["ice_road"] = "yes"
-    if road.maxspeed_kmh is not None:
-        tags["maxspeed"] = str(road.maxspeed_kmh)
-    if road.maxweight_t is not None:
-        tags["maxweight"] = str(road.maxweight_t)
-    if road.maxheight_m is not None:
-        tags["maxheight"] = str(road.maxheight_m)
+    tags.update(_limit_tags(road))
     return tags
 
 
-def build_osc(roads: list[CustomRoad], snap_map: dict[tuple[float, float], int]) -> str:
+@dataclass(frozen=True)
+class OsmWay:
+    """Существующий way карты: версия, узлы и теги"""
+
+    id: int
+    version: int
+    nodes: list[int]
+    tags: dict[str, str]
+
+
+def override_tags(way: OsmWay, override: OsmWayOverride, season: str) -> dict[str, str]:
+    """Теги дороги после переопределения. Зимник закрыт летом, закрытая
+    дорога закрыта в обоих графах"""
+    tags = {**way.tags, **_limit_tags(override)}
+    closed = override.season == "closed" or (
+        override.season == "winter_only" and season == "summer"
+    )
+    if closed:
+        tags["motor_vehicle"] = "no"
+    if override.season == "winter_only" and season == "winter":
+        tags["ice_road"] = "yes"
+    return tags
+
+
+class _WayReader(osmium.SimpleHandler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.ways: dict[int, OsmWay] = {}
+
+    def way(self, w: "osmium.osm.Way") -> None:
+        self.ways[w.id] = OsmWay(
+            id=w.id,
+            version=w.version,
+            nodes=[n.ref for n in w.nodes],
+            tags={tag.k: tag.v for tag in w.tags},
+        )
+
+
+def overridden_ways(
+    overrides: list[OsmWayOverride],
+    base_pbf: Path,
+    workdir: Path,
+    runner: OsmiumRunner,
+    season: str,
+) -> list[OsmWay]:
+    """Way карты с тегами переопределений. Пропавшие из карты пропускаются"""
+    if not overrides:
+        return []
+    extract = workdir / "overridden_ways.osm.pbf"
+    runner.get_ways(base_pbf, [o.way_id for o in overrides], extract)
+    reader = _WayReader()
+    reader.apply_file(str(extract))
+    result = []
+    for override in overrides:
+        way = reader.ways.get(override.way_id)
+        if way is None:
+            log.warning("osm_way_override_missing", way_id=override.way_id)
+            continue
+        result.append(
+            OsmWay(
+                id=way.id,
+                version=way.version + 1,
+                nodes=way.nodes,
+                tags=override_tags(way, override, season),
+            )
+        )
+    return result
+
+
+def build_osc(
+    roads: list[CustomRoad],
+    snap_map: dict[tuple[float, float], int],
+    modified: list[OsmWay] | None = None,
+) -> str:
     """Формирует XML OsmChange. Совпадающие координаты разных дорог
-    получают общий node id, чтобы касающиеся дороги были связаны графом."""
+    получают общий node id, чтобы касающиеся дороги были связаны графом.
+    modified это существующие way с новыми тегами, узлы у них прежние."""
     root = ET.Element("osmChange", version="0.6", generator="custom_roads_publisher")
     create = ET.SubElement(root, "create")
+    if modified:
+        modify = ET.SubElement(root, "modify")
+        for item in modified:
+            way = ET.SubElement(
+                modify, "way", id=str(item.id), version=str(item.version)
+            )
+            for ref in item.nodes:
+                ET.SubElement(way, "nd", ref=str(ref))
+            for key, value in item.tags.items():
+                ET.SubElement(way, "tag", k=key, v=value)
 
     node_by_coord: dict[tuple[float, float], int] = {}
     nodes_created: set[int] = set()
@@ -208,23 +303,26 @@ def export_osc(
     output: Path,
     runner: OsmiumRunner,
     snap_tolerance_m: float = 100.0,
+    overrides: list[OsmWayOverride] | None = None,
+    season: str = "summer",
 ) -> int:
-    """Пишет .osc для списка дорог, возвращает число дорог в выгрузке."""
-    if not roads:
+    """Пишет .osc для дорог и переопределений, возвращает число объектов"""
+    if not roads and not overrides:
         output.write_text(_EMPTY_OSC, encoding="utf-8")
         return 0
 
     endpoints = collect_snap_endpoints(roads)
     snap_map: dict[tuple[float, float], int] = {}
-    if endpoints:
-        with tempfile.TemporaryDirectory(dir=output.parent) as tmp:
+    with tempfile.TemporaryDirectory(dir=output.parent) as tmp:
+        if endpoints:
             nearby = extract_surroundings(base_pbf, endpoints, Path(tmp), runner)
             snap_map = build_snap_map(nearby, endpoints, snap_tolerance_m)
-        log.info(
-            "custom_roads_endpoints_snapped",
-            snapped=len(snap_map),
-            total=len(endpoints),
-        )
+            log.info(
+                "custom_roads_endpoints_snapped",
+                snapped=len(snap_map),
+                total=len(endpoints),
+            )
+        modified = overridden_ways(overrides or [], base_pbf, Path(tmp), runner, season)
 
-    output.write_text(build_osc(roads, snap_map), encoding="utf-8")
-    return len(roads)
+    output.write_text(build_osc(roads, snap_map, modified), encoding="utf-8")
+    return len(roads) + len(modified)
