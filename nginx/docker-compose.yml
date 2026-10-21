@@ -21,9 +21,12 @@ services:
     environment:
       NGINX_ENVSUBST_FILTER: ^(HOST_|APP_|SERVER_IP)
     volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./templates:/etc/nginx/templates:ro
       - ./snippets:/etc/nginx/snippets:ro
       - ../certs:/etc/nginx/certs:ro
+      # Заглушка технических работ и файл ручного режима on
+      - ./html:/usr/share/nginx/maintenance:ro
       # Кэш тайлов подложки переживает пересоздание контейнера
       - tiles-cache:/var/cache/nginx/tiles
     networks:

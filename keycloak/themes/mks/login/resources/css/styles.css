@@ -1,9 +1,9 @@
 :root {
     --keycloak-logo-url: url('../img/mks-logo.png');
     --keycloak-bg-logo-url: url("../img/keycloak-bg-darken.svg");
-    --keycloak-logo-height: 63px;
-    --keycloak-logo-width: 300px;
-    --keycloak-card-top-color: var(--pf-v5-global--palette--blue-400);
+    --keycloak-logo-height: 69px;
+    --keycloak-logo-width: 140px;
+    --keycloak-card-top-color: #0079c2;
 }
 
 .pf-v5-c-login__container {

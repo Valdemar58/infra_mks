@@ -27,6 +27,8 @@ post_import_hint() {
   docker exec -it keycloak kcadm.sh update clients/<id> -r master -s secret=<CLIENT_STREAMLIT_SECRET приложения>
   docker exec -it keycloak kcadm.sh update clients/<id> -r master \\
       -s 'redirectUris=["https://${HOST_UI:-appsrvs}/oauth2callback","http://localhost:8515/oauth2callback"]'
+Тема входа с логотипом МКС для realm, импортированного до ее включения:
+  docker exec -it keycloak kcadm.sh update realms/master -s loginTheme=mks
 EOF
 }
 

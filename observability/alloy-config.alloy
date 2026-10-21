@@ -1,12 +1,12 @@
 // Собирает stdout/stderr контейнеров этого хоста через Docker API и
-// отправляет в Loki. Общая docker-сеть с приложением не нужна:
-// discovery.docker и loki.source.docker читают смонтированный
-// /var/run/docker.sock.
+// отправляет в Loki, метрики хоста и контейнеров отправляет в Prometheus.
+// Общая docker-сеть с приложением не нужна: discovery.docker и
+// loki.source.docker читают смонтированный /var/run/docker.sock.
 //
 // Какие контейнеры брать, задает APP_CONTAINER_REGEX (корневой .env):
 // на хосте могут быть посторонние контейнеры. Имя контейнера у Docker
-// начинается с "/". Метка app постоянная, дашборды Grafana фильтруют по
-// ней и не зависят от имен контейнеров.
+// начинается с "/". Метка app постоянная, метка service называет сервис
+// независимо от имени контейнера, метка host это SERVER_IP хоста.
 
 discovery.docker "containers" {
 	host = "unix:///var/run/docker.sock"
@@ -31,11 +31,95 @@ discovery.relabel "containers" {
 		target_label = "app"
 		replacement  = "asu"
 	}
+
+	// Сервис по умолчанию это имя контейнера, известные имена ниже
+	rule {
+		source_labels = ["container"]
+		target_label  = "service"
+	}
+
+	rule {
+		source_labels = ["container"]
+		regex         = sys.env("APP_NAME")
+		target_label  = "service"
+		replacement   = "asu_ui"
+	}
+
+	rule {
+		source_labels = ["container"]
+		regex         = sys.env("APP_NAME") + "_api"
+		target_label  = "service"
+		replacement   = "asu_api"
+	}
+
+	rule {
+		source_labels = ["container"]
+		regex         = "infra_nginx"
+		target_label  = "service"
+		replacement   = "nginx"
+	}
+
+	rule {
+		source_labels = ["container"]
+		regex         = "keycloak(-dev)?"
+		target_label  = "service"
+		replacement   = "keycloak"
+	}
+
+	rule {
+		source_labels = ["container"]
+		regex         = "infra_valhalla_(summer|winter)"
+		target_label  = "service"
+		replacement   = "valhalla"
+	}
+
+	rule {
+		source_labels = ["container"]
+		regex         = "infra_tiles"
+		target_label  = "service"
+		replacement   = "tiles"
+	}
 }
 
 loki.source.docker "containers" {
 	host       = "unix:///var/run/docker.sock"
 	targets    = discovery.relabel.containers.output
+	forward_to = [loki.process.level.receiver]
+}
+
+// Метка level в нижнем регистре, остальные поля разбираются в запросах
+loki.process "level" {
+	stage.match {
+		selector = "{service=~\"asu_api|asu_ui|keycloak\"}"
+
+		stage.json {
+			expressions = {level = "level"}
+		}
+	}
+
+	stage.match {
+		selector = "{service=\"valhalla\"}"
+
+		stage.regex {
+			expression = "\\[(?P<level>INFO|WARN|ERROR|DEBUG|TRACE)\\]"
+		}
+	}
+
+	stage.template {
+		source   = "level"
+		template = "{{ if .Value }}{{ ToLower .Value }}{{ end }}"
+	}
+
+	stage.replace {
+		source     = "level"
+		expression = "^(warn)$"
+		replace    = "warning"
+	}
+
+	stage.labels {
+		values = {level = ""}
+	}
+
 	forward_to = [loki.write.default.receiver]
 }
 
@@ -43,4 +127,51 @@ loki.write "default" {
 	endpoint {
 		url = sys.env("LOKI_URL") + "/loki/api/v1/push"
 	}
+	external_labels = {host = sys.env("METRICS_HOST")}
+}
+
+// Метрики хоста: каталоги хоста смонтированы в /host
+prometheus.exporter.unix "host" {
+	procfs_path = "/host/proc"
+	sysfs_path  = "/host/sys"
+	rootfs_path = "/host/root"
+
+	set_collectors = ["cpu", "loadavg", "meminfo", "filesystem", "diskstats", "uname", "time", "pressure"]
+
+	filesystem {
+		mount_points_exclude = "^/(dev|proc|run|sys|var/lib/docker/.+)($|/)"
+		fs_types_exclude     = "^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|iso9660|squashfs|sysfs|tmpfs|tracefs)$"
+	}
+}
+
+prometheus.scrape "host" {
+	targets         = prometheus.exporter.unix.host.targets
+	scrape_interval = "30s"
+	forward_to      = [prometheus.relabel.drop_instance.receiver]
+}
+
+// instance это id контейнера Alloy, после пересоздания серии бы двоились
+prometheus.relabel "drop_instance" {
+	forward_to = [prometheus.remote_write.default.receiver]
+
+	rule {
+		action = "labeldrop"
+		regex  = "instance"
+	}
+}
+
+// Метрики контейнеров отдает отдельный cadvisor: встроенный в Alloy не
+// понимает хранилище образов containerd, которое Docker 29 ставит по умолчанию
+prometheus.scrape "containers" {
+	targets         = [{"__address__" = "cadvisor:8080"}]
+	job_name        = "cadvisor"
+	scrape_interval = "30s"
+	forward_to      = [prometheus.remote_write.default.receiver]
+}
+
+prometheus.remote_write "default" {
+	endpoint {
+		url = sys.env("PROMETHEUS_URL") + "/api/v1/write"
+	}
+	external_labels = {host = sys.env("METRICS_HOST")}
 }

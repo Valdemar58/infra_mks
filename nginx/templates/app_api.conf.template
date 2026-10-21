@@ -12,9 +12,12 @@ server {
     include /etc/nginx/snippets/security_headers.conf;
 
     client_max_body_size 50m;
+    include /etc/nginx/snippets/maintenance_api.conf;
+
     set $upstream_api ${APP_API_UPSTREAM};
 
     location / {
+        include /etc/nginx/snippets/maintenance_switch.conf;
         proxy_pass http://$upstream_api:8000;
         include /etc/nginx/snippets/proxy_headers.conf;
         proxy_read_timeout 300;

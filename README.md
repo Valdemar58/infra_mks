@@ -183,9 +183,28 @@ OFFLINE=1 в .env                # setup.sh ничего не скачивает
 
 После правки шаблонов или `.env` контейнер пересоздается: `./nginx/setup.sh` или `./compose.sh nginx up -d --force-recreate`. Посмотреть результат рендера: `./nginx/setup.sh --show`. Неизвестные имена nginx не обслуживает (соединение закрывается).
 
+Лог доступа пишется в JSON (`nginx/nginx.conf`), его разбирает дашборд «Входной трафик». Сайт пишется в поле `vhost`, потому что `host` у логов в Loki это метка сервера.
+
+Когда приложение недоступно (контейнер остановлен, не резолвится или не ответил), UI отдает заглушку `nginx/html/maintenance.html` с кодом 503, а API отдает JSON `{"error_code": "service_unavailable", ...}`. Страница сама обновляется раз в 30 секунд и возвращает пользователя в приложение, как только оно поднимется. Ошибки, которые вернуло само приложение, проходят без подмены. Плановые работы включаются файлом-флагом без перезапуска nginx:
+
+```
+touch nginx/html/on   # заглушка для UI и API
+rm nginx/html/on      # обратно
+```
+
+Логотип в заглушке вшит в HTML как base64. После замены логотипа заново вставить его в `maintenance.html` (строка `data:image/png;base64,...`).
+
 ### keycloak
 
 Прод: только Keycloak, БД на внешнем Postgres (`keycloak/.env`), realm импортируется из `realm-export.json` один раз на пустую БД. Dev (`--dev`): Keycloak и одноразовый postgres, realm без LDAP, пользователь `admin_dev/admin_dev`, админка `admin/admin`, `http://localhost:8080`.
+
+Форма входа оформлена темой `keycloak/themes/mks` (наследует `keycloak.v2`). Логотип это файл `themes/mks/login/resources/img/mks-logo.png`, его размер задают `--keycloak-logo-width` и `--keycloak-logo-height` в `resources/css/styles.css`, цвет полосы над формой задает `--keycloak-card-top-color`. На проде тема кэшируется, после правки нужен `docker restart keycloak`, в dev изменения видны сразу. Тема выбирается в самом realm (`loginTheme`), поэтому для realm, импортированного раньше, ее включают один раз:
+
+```
+docker exec -it keycloak kcadm.sh update realms/master -s loginTheme=mks
+```
+
+Логи Keycloak идут в консоль в JSON, события входа (`LOGIN`, `LOGIN_ERROR`) пишутся на уровне info, их разбирает дашборд «Входы в Keycloak». Сохранение событий в БД (`eventsEnabled`) не включено, поэтому история входов живет только в Loki.
 
 Секреты и параметры домена в `realm-export.json` не хранятся (в файле плейсхолдер `__SET_VIA_KCADM__`), после первого импорта задаются через `kcadm.sh` (команды печатает `keycloak/setup.sh`): адрес контроллера домена, base DN, учетная запись и пароль LDAP, секрет клиента `streamlit` (равен `CLIENT_STREAMLIT_SECRET` приложения), redirect URI клиента `streamlit` для уже существующего realm (`https://<HOST_UI>/oauth2callback` есть в экспорте только для новых установок).
 
@@ -233,13 +252,27 @@ docker run --rm -v docker_registry_registry_data:/data -v $(pwd):/backup alpine 
 
 ### observability
 
-Loki хранит логи 90 дней (`loki-config.yml`), Alloy собирает stdout контейнеров через Docker socket, Grafana показывает. Alloy берет только контейнеры, чьи имена подходят под `APP_CONTAINER_REGEX` из корневого `.env`, и ставит им метку `app="asu"`; дашборды фильтруют по ней и от имен контейнеров не зависят. Grafana снаружи через nginx (`HOST_GRAFANA`), локально `http://127.0.0.1:3001`, логин `admin` и пароль из `observability/.env`.
+Loki хранит логи 90 дней (`loki-config.yml`), Prometheus хранит метрики 30 дней, Alloy собирает stdout контейнеров через Docker socket и метрики хоста, cadvisor отдает метрики контейнеров, Grafana показывает. Alloy берет только контейнеры, чьи имена подходят под `APP_CONTAINER_REGEX` из корневого `.env`. Метки логов:
 
-Поиск по логам через LogQL, например `{app="asu"} | json | username="ivanov"`.
+- `app="asu"` у всех собранных контейнеров;
+- `service`: `asu_api`, `asu_ui`, `nginx`, `keycloak`, `valhalla`, `tiles`, у остальных имя контейнера;
+- `level` в нижнем регистре, у JSON-логов приложения и Keycloak и у Valhalla;
+- `host` это `SERVER_IP` хоста, тот же `host` стоит у метрик.
 
-На хостах без основного стека (приложение или Valhalla на другом сервере) поднимается только агент: `./setup.sh --only observability --agent`. Он пишет в Loki по `LOKI_URL` через `app-network`, Loki для этого имеет алиас `loki`.
+Остальные поля разбираются в запросе. Grafana снаружи через nginx (`HOST_GRAFANA`), локально `http://127.0.0.1:3001`, логин `admin` и пароль из `observability/.env`.
 
-Дашборд «Активность приложения» (`grafana/provisioning/dashboards/activity.json`): запросы к API во времени и по статусам, ошибки, топ пользователей и эндпоинтов, просмотры страниц. Правки из UI в файл не попадают сами. Чтобы зафиксировать: открыть дашборд, настройки, JSON Model, сохранить поверх `activity.json`, убрать поля `id` и `version`, оставить `uid` как есть, закоммитить. Через `updateIntervalSeconds: 30` файл снова станет источником правды.
+Поиск по логам через LogQL, например `{service="asu_api"} | json | username="ivanov"`.
+
+На хостах без основного стека (приложение или Valhalla на другом сервере) поднимается только агент: `./setup.sh --only observability --agent`. Это Alloy и cadvisor, они пишут в Loki и Prometheus по `LOKI_URL` и `PROMETHEUS_URL` через `app-network`, для этого у Loki и Prometheus есть алиасы `loki` и `prometheus`.
+
+Метрики контейнеров снимает отдельный cadvisor, а не встроенный в Alloy: тот не понимает хранилище образов containerd, которое Docker 29 включает по умолчанию, и видит только корневой cgroup.
+
+Дашборды лежат в `grafana/provisioning/dashboards/` по папкам:
+
+- `asu/` (папка «АСУ МКС»): «API» (нагрузка, доля 5xx, время ответа, таблица эндпоинтов), «Пользователи» (активные пользователи, нагрузка по часам МСК, матрица пользователь и страница), «Ошибки и БД» (исключения с трассировкой, медленные вызовы репозиториев дольше 500 мс);
+- `infra/` (папка «Инфраструктура»): «Входной трафик» (nginx по сайтам, недоступность, время ответа), «Входы в Keycloak», «Хосты и контейнеры» (Prometheus), «Маршруты и тайлы» (Valhalla, кэш и рендер тайлов).
+
+Правки из UI в файл не попадают сами. Чтобы зафиксировать: открыть дашборд, настройки, JSON Model, сохранить поверх файла, убрать поля `id` и `version`, оставить `uid` как есть, закоммитить. Через `updateIntervalSeconds: 30` файл снова станет источником правды.
 
 ### tiles
 

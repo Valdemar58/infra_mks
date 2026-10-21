@@ -9,7 +9,8 @@ services:
   keycloak:
     image: ${IMAGE_MIRROR:-}quay.io/keycloak/keycloak:26.6
     container_name: keycloak
-    command: start --spi-theme-cache-themes=false --spi-theme-cache-templates=false --import-realm
+    # Тема кэшируется: после правки themes/ нужен docker restart keycloak
+    command: start --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
@@ -24,8 +25,12 @@ services:
       KC_HOSTNAME: ${KC_HOSTNAME:-${HOST_AUTH:-appsrvs.auth}}
       KC_HOSTNAME_STRICT: "false"
 
-      KC_THEME: mks
-      KC_THEME_TYPE: login
+      # Тема входа по умолчанию, у realm master она задана еще и в самом realm
+      KC_SPI_THEME__DEFAULT: mks
+
+      # JSON в консоль для Loki, успешные входы на уровне info, иначе их не видно
+      KC_LOG_CONSOLE_OUTPUT: json
+      KC_SPI_EVENTS_LISTENER__JBOSS_LOGGING__SUCCESS_LEVEL: info
     volumes:
       - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
       - ./themes:/opt/keycloak/themes:ro

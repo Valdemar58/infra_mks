@@ -12,9 +12,12 @@ server {
     include /etc/nginx/snippets/tls.conf;
     include /etc/nginx/snippets/security_headers.conf;
 
+    include /etc/nginx/snippets/maintenance_ui.conf;
+
     set $upstream_ui ${APP_UI_UPSTREAM};
 
     location / {
+        include /etc/nginx/snippets/maintenance_switch.conf;
         proxy_pass http://$upstream_ui:8501;
         include /etc/nginx/snippets/proxy_headers.conf;
         # Streamlit держит WebSocket с браузером: без апгрейда страница

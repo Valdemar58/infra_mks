@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="30">
+<title>АСУ МКС: технические работы</title>
+<style>
+  :root {
+    --brand: #0079c2;
+    --brand-dark: #005a91;
+    --bg: #eef1f5;
+    --card: #ffffff;
+    --text: #1d2733;
+    --muted: #5b6776;
+    --line: #dde3ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111820;
+      --card: #1a232d;
+      --text: #e6ebf0;
+      --muted: #9aa7b5;
+      --line: #2b3743;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  main {
+    width: 100%;
+    max-width: 560px;
+    background: var(--card);
+    border-top: 4px solid var(--brand);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 8px 24px rgba(16, 24, 40, .08);
+  }
+  header {
+    padding: 32px 40px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  header img { display: block; width: 140px; height: 69px; }
+  section { padding: 32px 40px 36px; }
+  .label {
+    margin: 0 0 12px;
+    color: var(--brand);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 0 0 12px;
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+  p { margin: 0; color: var(--muted); }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--brand);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+  .status a {
+    margin-left: auto;
+    color: var(--brand);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .status a:hover { color: var(--brand-dark); text-decoration: underline; }
+  footer {
+    margin-top: 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  @media (max-width: 480px) {
+    header { padding: 24px 24px 20px; }
+    section { padding: 24px 24px 28px; }
+    h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIwAAABFCAYAAACYJw5CAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAF+mlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDUgNzkuMTYzNDk5LCAyMDE4LzA4LzEzLTE2OjQwOjIyICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHhtcDpDcmVhdGVEYXRlPSIyMDIwLTA1LTIwVDEyOjI4OjQ2KzAzOjAwIiB4bXA6TW9kaWZ5RGF0ZT0iMjAyMC0wNS0yMFQxMjozMjowNiswMzowMCIgeG1wOk1ldGFkYXRhRGF0ZT0iMjAyMC0wNS0yMFQxMjozMjowNiswMzowMCIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHBob3Rvc2hvcDpDb2xvck1vZGU9IjMiIHBob3Rvc2hvcDpJQ0NQcm9maWxlPSJzUkdCIElFQzYxOTY2LTIuMSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDpiMDYxZWMyNy05NDE5LWNmNDMtYWMzMi1hNTRlNzFjMGViMTIiIHhtcE1NOkRvY3VtZW50SUQ9ImFkb2JlOmRvY2lkOnBob3Rvc2hvcDpjMTIwN2JjNS0wMWQ0LTA3NDQtOGUwZS0zOGM1ZWJhMzIyNjAiIHhtcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD0ieG1wLmRpZDpkNTdhMTk5YS1lMDcwLTdhNGEtOTAwNS02ZmY2ZjQ5OTU2NDciPiA8eG1wTU06SGlzdG9yeT4gPHJkZjpTZXE+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJjcmVhdGVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmQ1N2ExOTlhLWUwNzAtN2E0YS05MDA1LTZmZjZmNDk5NTY0NyIgc3RFdnQ6d2hlbj0iMjAyMC0wNS0yMFQxMjoyODo0NiswMzowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIENDIDIwMTkgKFdpbmRvd3MpIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDpiMDYxZWMyNy05NDE5LWNmNDMtYWMzMi1hNTRlNzFjMGViMTIiIHN0RXZ0OndoZW49IjIwMjAtMDUtMjBUMTI6MzI6MDYrMDM6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAyMDE5IChXaW5kb3dzKSIgc3RFdnQ6Y2hhbmdlZD0iLyIvPiA8L3JkZjpTZXE+IDwveG1wTU06SGlzdG9yeT4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz6MlxqhAAAO9klEQVR4nO2de7RVxXnAf+dyvVwQFQaUp4pI5WpQ0GjsgEa6SoMxatJEEqUm1YhtE23rmpo0Xdq0i7SutMXdtJqIeWrNiiQ+VrWuJq3WWCWOKzE+QAhPBSKIPIZ7L5cL9wX9Y2bfs++cvffZ9zyJPb+17pqz95695+Ocb8983zffDDnqiFC6GXgEWGICeaiesjTIRlOd21fAx4A76ixHg4zk6tWwUPoUYBNwItADnG0C+Va95GmQjXr2MMuwyrIVGAn8Yx1laZCRuvQwQunTgS1AO/A+4DVgEiBNIF+qh0wNslGvHuYvgRHAchPId4F/cOf/tk7yNMhIzRVGKD0ZuBE4CKxwp+8HdgOLhNLvq7VMDbJTjx7mc0Ar8H0TyHYA51Lf567/WR1kapCRmiqMUHoE8Fl3+A3v8n1AH7BEKD2qlnI1yE6te5gFwFTglyaQq6MXnC3zODAG+GiN5WqQkVorzGJXPhyeEEqfF7n+b678RM0kajAsaq0wlwNHgR/CoAH8nCsBngY6gYVu+GpwjFEzhRFKzwROB7QJ5NvutALGAV8AMIHsA/4bGAucXyvZGmSnlj3MPFc+DyCUbiVvAC8VSh/vPr/gyvfXULYGGamlwlzkSu3KxYBwn08ArnWfX3Tl3NqI1WA41FJhQuM2DP3/gXf9Ble+BhyiMSQdk9RSYWYBb5tA7hZKC+B3vevzhdJTTCD7sbPY5zYM32OPmiiMs1cmYhUBbA5Ms1ctR96d3gyMBibT4JiiVj3MFFeGCvPhhHpXu3KzK0+rmkQNSqJWCjPelXuF0k3A7yTUmy+UbsFORAKcUnXJGgyLWilM6DK/C8wmr0A+o4CLgT3ueGx1xWowXHw7omRcYO5i4CxgJtZVbjKBvDJSrZPi7vJc4Ncp7azEJlulcacJ5Cqh9HXAH6fUu8kEcov3/IuxM+qnUfhC7QMeMYFcGal/OfClIvKEvGYCeZu77wbynmEch4FXgLtNIPd5Mi4GPgmc7N1zBPvdrTCB1JH6X8JG2X1WmUDe6Z8USl8C/F2cUCUrjFA6B1wCfBq4Ajup6NMRc+6cIo+eTYrCAL+NjRinMcGVFwKXpdSbic38Awa/qOewyV1JfFwoPcME8i53PKlIG0lMz3DfIuD3hdIXhKsqhNJ/ASwvct/1QunfM4F81h23JbQ1BShQGODSJNmGPSQJpVuE0jcCG7FR25uJV5YofZH2zi5Sd8ZwZUqhmFz+9S+QriwhX6yhy9+Gm713L2mW3qwJN91ShJmRCHuUuWkPzoxQ+kpgA/Bd7NuZlf2uHEvx4eRUbHI45G2ZNA5ijejo3yp3bZpX9xXv2Hfbz/WOB4AlRHohx0kxz47yIHBVyvUk/prITH6EMOg5iXzvGfIWcB35lzLE/7fEkYs8O8qcpBsyDUlC6XHAtyg97cC4cizFFWYydkISYGeGZ/ebQD6X8qworwMXRI79H32sd9xlAvmwUHoRcKZ3bRywLaHdreSVdji8gY2EX+edH50gH8BqE8iVQumvMnSoHpOxzTnkp2sQSo8GfiupctEeRih9ITZcX06OSqgw47FvZ5TXveMTyXtRWRQmDX/IebPI9Xov7APoT7k2sgrt+b3JuaR8D6lfkPMAnqfMAJoJZC/wNtbIio6Z3cBCCoee84Bul4VXEkLpCRR+wZu84yk0mOsdJw5HkKIwQumrgSexsZFKsAFrn0SHwcdMIPcCK726bdjuuRx8ZThMYY/l9zAdMX/vdc51wdSQuWmVY20Y516uBI6rnFy8TOGKgMdd+Z/An0bOzwS+U2Z7vsIY8sZ3yEShdLOb8MQEMsldj/uefCPzN5Xjsd/3RnccZwQPUtDDCKWnYH/ISmfu65hnroqUA5HzI4BflNmeb9Dup1BhchQ3wsHGTKL0AttLE+uYIer5zYFBtz06JBWsdR/y5riu6QcURhArwU+xShHGLza54QgTyC6h9HrsstmQZykPv4fZT974jjIVa18NIpRegF3h0IxNy5jv3fPPJpAHypSv3qwm7/nNwW67MoO8d7UNG5kfgt/D/BGlRS2LYgLZScR9ozC2EdXmrSaQvkczXAqGJBct7fHOxwX3FgB/g92G5Bp37gjwX1iX96/KlO1YIGojzvVKgLVxNw0qjPMq7oqrVEF+Evm8z7sW9YieqkBb/pAUtucPS1k9pSZsqP4+4CNlyFUMEXOutwrtbIh8nuOVAOvibor2MLeTD5hVi8cin/2dI6Ky/KACbcUNSVA4LMVFbFdgU0Qvwk4QdkeujQUeFEpX0iEI+XPgX2LOV8Ne2kg+5jNNKD2eoQoT28M0AwilTwL+pApCDcEEcr1Q+hVstNVXzlZXbiOf91sO/lCz3ytDCnoYE8hdwC53+LILMXw8UkVgx/sN/r1lsiDmXBfwaIXbAevlbSQ/GTyHoUPS+ribQqN3CYUR2GrxEFZh/GBg+MN90wTyaDkNuLffT75SQumlFHpFgwrjwglRR6DfBHIVEGfgVnv99wDwKqCcAleDX5FXmMsY+pukDkmfrpJAcXwXGxBrc/MWoXd2AVbrv12BNuJygcdh51r86G90SHoK682Ff5WwpYbD9Vg5xwEtJpAXmUC+UOSecogqxQ2Rz792TkoBzULpiYCsolBDMIHsFEqvwG4qdCF26qENm3B1vwnk7rT7MxLn+WzBdu9TGTrjWywFopYcDLdAqRFRhSnau4DtYZLya0vhIPAE1u38JHBlQr3l2G4+TAa/GtsFF0sMykqcElxvAjkXuMc7P0YonXVm971GkmLE2i9gx+t5SReHwRbgq8DDJpAHi1U2gdwrlF4OfFYofQc2trHCBHJzkVuzEucqh96Rb/SCHZYSv6RjiLJsuxjWMzSYGhLrIYHtYYqlTKYxAHwZOMcE8ttZlCXCP2G/gH/FdofLypDDJ66HMV4ZV7/LO98qlD6Z+CzA7phz1aY95twkJ6PvdRaN3bgsgritbhOHpGZs0nYptANXl2qUmUAeEkp/HjvxeHOFbJeQuNhKUhwG8kbyToYq20jyS16iHCXvdteSXRT2CBcTL2PWXKK1FGZPpvYwYzM+OEonsKBcC94E8sdYl77cmWkf30vqMIEMJzeThiSAH2V8/o+TvIhqYgLZg7URs5D13+Irx7tphncz1jsZLteaQPqZciVhAhmXw1ou/pBkEj779b8GnAEsBVoSnv2Mu14vPodNSViUcL0XeAA75GfhV95x4nAEpS0z+brrGYoilJ5GabmtPrebQIbRTj+4diSm/kKGdtvR8fxNrFJE6QJweTG3uKUcEymcvthvAuknVT2KXZoSpR3bC/vtHI58/hr2h41SdFh2Q/flLjofN5Xzbsx/9HE7hXsgh0PWowz9jaJ23BV4L05OKN1N9qhlBzA9a6xAKD2deKNquNxoAvlABZ7ToEyaKPQM0vhmjQNLDY4xmsin5mXhwWoJ0uA3g+EozA4TyER3q8H/D5qAn2es+3KZbfViNzxciU2k2lvm8xrUgWYKLfwk0hbIp9ENfAW41wRy0F5yM9RXYv8nk7YSn92gxjS7pKY3Kb4I3k+pzMIBYF5czMYE8gjwpFD6WaxrlxRXGIJQ+jYa+8bUjTCe8RA26TmNYQf43L4mqYrmVgwsxi4rmZXhsbdRfLuPBlUiTKB6kKHrguKoWt6IW7LxXsjEf8/TDGAC+ZZQ+lHgUyl1U9fcVoAnsfM8FU9EnzVxFC3N9t3Yc6CPXZ29nNA6gunjWwfrbNjVTe9ApbMHCmV4p6OXvV19zJ4ymlwuR8ehfrYbf+VL5Rnd0sSMCa309B9ly55DHCnxnxoNsS/DrsFJ2iinTSg91QRyR2lNpWMCOeASxP39e8vmhze3ceo4m5n5+Kv7uPn7m7jmggks/0Q+cn/+379a1R8ulOGOJ7bx+ttdPHWLXbN368otbDdZtsEpnaWXTGLZVacx0r00W/f18JnvbWDtO8PP0Bhc2mECuQ64t0j9a4tcL5fh5NOUxHlT7VYrs6eMLlKzetw03+ahv7XvMI/8srrRhckntXDXR09nZHMTz2/qYLvpYfr4kdx9jT/NlQ1/5eOXSXefb3XbolaLqm7k3NN/hDNPHsXolibmTDuenv64ecvqMvmkFq46z65Vu/vpHfSXOjZkZMaEVkY02TnUmx7aRPCMHSBmTSrthRmiMC7H41Mkb2ozHbilpJaK4BZSVfV/MFm7s5tcDs4/dQznTB7N2p21T5q79sIJNDflatK7+AwcgafWGBYEa/jIvaUF7Qt2b3DbdaqUe74ilK5GoO22OHkqyTZno8w780RGNjcNHteSCWPsgsn17xyqeu8Sx/7uftbsOMi6EuwXSPiBTCDvIXmd9fHAv7s80ooglJbAFxMu91GZFAnWvdPNkaMwb4YNKb2xo+omUyILzx47qDy1ZNq4kVwxW/Chs8eWdH/aG30nyUozC3jW7SVTFkLpedgFY3G2UR9wjQnk/5bbDkBTDt7cc4jzT7WrStbUYUja393Prs5ejhuRY8lF1dhVJZ1LZ57IQzeexf3XJ+57mEqiwphAHjWBvAO7M1ScTTMbu+54YSkNC6VzQulbsfvAxO1YsAdYZAL5ZCnPj2NEU47VO7o5oXUEuw/0sftA7TeR+taqXTzxus0S/Yw8hZyf01dhOg/n47EfmD5m8GXpPJS292IyRW0GE8h7gQ8S7z1NBp4WSv9IKD07a6NC6Q9hF9zfQ/zOkC8C7zeB/GnWZ2bljZ12GFpTp+Go49AA/7HazpacMb6VS2dWd0n72p0HWb/LZmyuXNrGTfMnAvDYq6VMDWbM6TWB1E4hlgG3UhjcWwwsFkq/hM1qfxG7Y2W7q3sydgfwD2K3b03aFDqcIrjPTU5WhJe3dbHd9LDd9LB5z2F+tqWTn6zdT1fPAD/bYpP/D/dV18UOZdjZ3sPPt3bxP+vbaT2uidlTRvP8purtvXjkKHxsxTo+f9lkZk0cRW//UV7Y3MEDurRVPcPuEIXS52B3rF5Mtm3Ws3AQGzRcHm5jltL+VhqTj3Wj5BFUKH0G8IfYHQf8XbKz8gvge9gltu0Z291KQ2HqRkVMLqH0LOyi/g9gV1Kehd1cL1yNcAA7PG3Ernt5CXimlNWODYWpL/8H+Cc53YM+RxgAAAAASUVORK5CYII=" alt="Газпром МКС">
+  </header>
+  <section>
+    <p class="label">Технические работы</p>
+    <h1>Сервис временно недоступен</h1>
+    <p>Проводятся технические работы. Работа АСУ МКС будет восстановлена в ближайшее время.</p>
+    <div class="status">
+      <span class="dot" aria-hidden="true"></span>
+      <span id="status">Страница обновится автоматически</span>
+      <a href="">Обновить</a>
+    </div>
+  </section>
+</main>
+<footer>АСУ МКС</footer>
+<script>
+  (function () {
+    var left = 30;
+    var el = document.getElementById("status");
+    setInterval(function () {
+      left = Math.max(left - 1, 0);
+      el.textContent = "Повторная проверка через " + left + " с";
+    }, 1000);
+  })();
+</script>
+</body>
+</html>

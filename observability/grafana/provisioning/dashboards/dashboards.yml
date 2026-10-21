@@ -1,16 +1,26 @@
 apiVersion: 1
 
+# Дашборды лежат по папкам: asu для приложения, infra для инфраструктуры.
+# allowUiUpdates: true разрешает правки в UI Grafana (сохраняются в
+# grafana-data, не в файл). Как перенести изменения обратно в репозиторий,
+# написано в README, раздел observability.
 providers:
-  - name: asu_toir
+  - name: asu
     orgId: 1
-    folder: ""
+    folder: АСУ МКС
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
-    # allowUiUpdates: true - правки в UI Grafana разрешены (сохраняются в
-    # grafana-data, не в файл), но не подхватываются автоматически обратно
-    # в JSON-файл. Как перенести изменения обратно в репозиторий -
-    # см. infra/README.md.
     allowUiUpdates: true
     options:
-      path: /etc/grafana/provisioning/dashboards
+      path: /etc/grafana/provisioning/dashboards/asu
+
+  - name: infra
+    orgId: 1
+    folder: Инфраструктура
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/infra

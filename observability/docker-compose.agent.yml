@@ -1,6 +1,8 @@
-# Только Alloy: для хостов, где основной стек observability не запущен
-# (сервер приложения, сервер Valhalla). Собирает контейнеры своего хоста
-# и пишет в Loki по app-network (LOKI_URL из корневого .env).
+# Только Alloy и cadvisor: для хостов, где основной стек observability не
+# запущен (сервер приложения, сервер Valhalla). Собирает контейнеры своего
+# хоста и метрики хоста, пишет в Loki и Prometheus по app-network (LOKI_URL
+# и PROMETHEUS_URL из корневого .env). cadvisor в app-network не входит:
+# имя cadvisor одно на всех хостах и в общей сети разъехалось бы.
 # Запуск: ./setup.sh --agent в этом каталоге.
 
 services:
@@ -13,16 +15,47 @@ services:
       - /etc/alloy/config.alloy
       - --storage.path=/var/lib/alloy/data
     environment:
-      APP_CONTAINER_REGEX: ${APP_CONTAINER_REGEX:-${APP_NAME:?set APP_NAME in .env}.*|infra_valhalla.*}
+      APP_NAME: ${APP_NAME:?set APP_NAME in .env}
+      APP_CONTAINER_REGEX: ${APP_CONTAINER_REGEX:-${APP_NAME}.*|infra_valhalla.*|infra_tiles|infra_nginx|keycloak(-dev)?}
       LOKI_URL: ${LOKI_URL:-http://loki:3100}
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090}
+      METRICS_HOST: ${SERVER_IP:-unknown}
     volumes:
       - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # Каталоги хоста для метрик хоста
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+      - /run/udev/data:/run/udev/data:ro
+    depends_on:
+      - cadvisor
     networks:
+      - agent
       - app-network
     restart: unless-stopped
 
+  cadvisor:
+    image: ${IMAGE_MIRROR:-}ghcr.io/google/cadvisor:0.55.1
+    container_name: infra_obs_cadvisor
+    command:
+      - --docker_only=true
+      - --store_container_labels=false
+      - --enable_metrics=cpu,memory,network
+      - --housekeeping_interval=15s
+    cgroup: host
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    networks:
+      - agent
+    restart: unless-stopped
+
 networks:
+  agent:
+    driver: bridge
   app-network:
     external: true

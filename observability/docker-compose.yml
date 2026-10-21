@@ -1,9 +1,11 @@
-# Логи: Loki хранит, Alloy собирает stdout контейнеров через Docker socket,
+# Логи и метрики: Loki хранит логи, Prometheus метрики, Alloy собирает
+# stdout контейнеров через Docker socket и метрики хоста и контейнеров,
 # Grafana показывает. Grafana снаружи только через nginx (HOST_GRAFANA),
-# Loki и Alloy наружу не смотрят.
+# Loki, Prometheus и Alloy наружу не смотрят.
 #
-# Loki подключен и к app-network под именем loki: туда пишут Alloy-агенты
-# с других хостов (docker-compose.agent.yml). Alloy берет только контейнеры,
+# Loki и Prometheus подключены и к app-network под именами loki и
+# prometheus: туда пишут Alloy-агенты с других хостов
+# (docker-compose.agent.yml). Alloy берет только контейнеры,
 # чьи имена подходят под APP_CONTAINER_REGEX из корневого .env.
 # Запуск: ./setup.sh в этом каталоге.
 
@@ -31,16 +33,63 @@ services:
       - /etc/alloy/config.alloy
       - --storage.path=/var/lib/alloy/data
     environment:
-      APP_CONTAINER_REGEX: ${APP_CONTAINER_REGEX:-${APP_NAME:?set APP_NAME in .env}.*|infra_valhalla.*}
+      APP_NAME: ${APP_NAME:?set APP_NAME in .env}
+      APP_CONTAINER_REGEX: ${APP_CONTAINER_REGEX:-${APP_NAME}.*|infra_valhalla.*|infra_tiles|infra_nginx|keycloak(-dev)?}
       LOKI_URL: ${LOKI_URL:-http://loki:3100}
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090}
+      METRICS_HOST: ${SERVER_IP:-unknown}
     volumes:
       - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # Каталоги хоста для метрик хоста
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+      - /run/udev/data:/run/udev/data:ro
     depends_on:
       - loki
+      - prometheus
+      - cadvisor
     networks:
       - observability
+    restart: unless-stopped
+
+  # Метрики контейнеров хоста, читает только Alloy по сети стека
+  cadvisor:
+    image: ${IMAGE_MIRROR:-}ghcr.io/google/cadvisor:0.55.1
+    container_name: infra_obs_cadvisor
+    command:
+      - --docker_only=true
+      - --store_container_labels=false
+      - --enable_metrics=cpu,memory,network
+      - --housekeeping_interval=15s
+    cgroup: host
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    networks:
+      - observability
+    restart: unless-stopped
+
+  # Метрики хоста и контейнеров, пишут только Alloy через remote write
+  prometheus:
+    image: ${IMAGE_MIRROR:-}prom/prometheus:v3.1.0
+    container_name: infra_obs_prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-remote-write-receiver
+    volumes:
+      - prometheus-data:/prometheus
+    networks:
+      observability: {}
+      app-network:
+        aliases:
+          - prometheus
     restart: unless-stopped
 
   grafana:
@@ -67,6 +116,7 @@ services:
 
 volumes:
   loki-data:
+  prometheus-data:
   grafana-data:
 
 networks:

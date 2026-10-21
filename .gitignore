@@ -11,5 +11,8 @@ __pycache__/
 .ruff_cache/
 *.tmp
 
+# Флаг ручного режима технических работ nginx
+nginx/html/on
+
 # Выход offline-скриптов: образы и данные для переноса на сервер
 offline/bundle/
