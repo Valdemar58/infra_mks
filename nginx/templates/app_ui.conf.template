@@ -16,6 +16,10 @@ server {
 
     set $upstream_ui ${APP_UI_UPSTREAM};
 
+    # Загрузка файлов идет через Streamlit: потолок приложения 100 МБ плюс
+    # запас на обертку запроса. Без этого nginx режет все больше 1 МБ.
+    client_max_body_size 110m;
+
     location / {
         include /etc/nginx/snippets/maintenance_switch.conf;
         proxy_pass http://$upstream_ui:8501;
