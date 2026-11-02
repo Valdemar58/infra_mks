@@ -1,0 +1,7 @@
+# HSTS действует на все порты имени. Для короткого appsrvs его нужно
+# сбросить, чтобы браузер не переводил http://appsrvs:port на HTTPS.
+# На HTTP браузер этот заголовок игнорирует; сброс приходит по HTTPS.
+map $host $hsts_policy {
+    default             "max-age=0";
+    ~*^appsrvs\..+       "max-age=31536000";
+}
